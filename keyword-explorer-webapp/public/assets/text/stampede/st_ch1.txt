@@ -1,0 +1,82 @@
+This is a book about how and why groups of people believe  really, really, believe  in things that do not exist. Things like COVID-19 vaccines have mind-control chips in them, that immigrants are pouring over unprotected borders, that Vladimir 
+Putin 
+has 
+sexually 
+explicit 
+kompromat1 
+on Donald Trump, or that global warming is a hoax. We are living in a time when the dangers of such beliefs should seem painfully obvious, but instead, we are seeing people increasingly drawn to them even when they conflict with their own self-interest. 
+False beliefs resulted in the Rwandan Genocide of 1994, in which over one million people were slaughtered over the course of 100 days. The 2003 Iraq war was justified by the false belief that Saddam Hussein was hiding weapons of mass destruction. During the COVID-19 epidemic, the false belief that the vaccines were somehow more dangerous than the disease was shared by millions of people. Thousands upon thousands of these people died, slowly suffocating 
+1. https://en.wikipedia.org/wiki/Kompromat 
+
+as their lungs disintegrated into red pulp. Many succumbed never admitting that they had been wrong. Why? 
+To understand how such large groups can organize themselves around things that could clearly be shown to be false at the time, you need to understand that belief is a place. 
+When we talk about beliefs  political, religious, or just about anything else we have an opinion on, we find it natural to use terms that are deeply tied to location. We can take a position. We have a point of view. We can share common ground or take a leap of faith. Why would this be? Opinions and beliefs are simply thoughts, patterns of electricity and chemistry in our brains. There is nothing about an opinion that has anything to do with location or position. 
+And yet, language and literature are full of this fundamental tendency on the part of humans to locate themselves within their beliefs. This process is not limited to how we feel about information. The way we create our works of fiction also seem to rely on this same sense of location and position. Stories are journeys, which have plot lines and arcs. 
+Information, the thing that underlies belief, has no inherent place. It is simply a collection of data. Computers, unlike us, do not feel obligated to organize their outputs into narratives. But when humans talk about data and science, we tell stories that place these discoveries in a landscape of ideas. The way that we as groups understand information is inherently narrative. We tell and retell stories to each other. How those stories evolve and change, a little here, a lot there, is an example of how we collectively build belief structures in which we dwell, move within, and reshape from time to time. 
+The use of location and movement in our stories seems to be a natural consequence of the fact that human beings are fundamentally location-based animals. For virtually all of the time that life has been on Earth, the only reality that mattered was physical. Humans are the first organisms whose lives depend as much on abstract information as the physical environment. 
+It is unlikely that we could develop any other system, given the brief time in our evolution that there has even been language, much less the concept of information 
+. 
+As our brains evolved, they adapted the structures that they already had to new, more abstract purposes. We are the decedents of a long line of organisms that are deeply tied to a physical environment, and this is reflected in our language, our stories, and how we understand information. 
+Our beliefs are places in a shared terrain. 
+We can have locations in that terrain. We can move in that landscape. Groups can form and break up. In belief space, just like physical space, we can be nomads, moving to the beat of our own drummer, like Roald Amundsen, the Norwegian explorer who beat the much better funded British expedition of Robert Scott to the 
+South 
+Pole 
+. 
+We can flock with others and create fashions in everything from clothing to programming languages. We can lose ourselves in a stampede, careening mindlessly with others away from danger, like during the 1913 Italian Hall disaster when a false shout of Fire led to a panic resulting in 73 deaths, including 
+women 
+and 
+children2 
+. 
+
+In the same way that technology such as maps and GPS have profoundly affected the way we move in the world (can you really be lost anymore?), technology has affected the way we behave in this space too (can you really be offline anymore?). 
+Moving in physical ways through belief feels natural because were built that way. We apply instincts developed for the physical world to virtual group coordination 
+. 
+Changes in belief have an optimal velocity. Too slow and we get bored  we like novelty. Too fast and we become exhausted 
+ 
+ we dont like getting overwhelmed. Beliefs that change at the right pace make it easier to move together 
+, 
+like 
+birds in a flock or fish in a school. A bunch of people having similar beliefs, oriented towards the same goals are moving together through belief space. Its not surprising that they are going to find it easier to do things as a group 
+. 
+You may find it surprising that our brains synchronize, actually firing at the same times and the same places when we are sharing a story. And you can tell by looking at brain scans that people are exploring, 
+flocking, 
+or 
+stampeding 
+together 
+in 
+these 
+virtual 
+spaces 
+. 
+
+These patterns of motion are greatly influenced by the communications media through which we coordinate. Small villages connected only by foot traffic behavedifferentlyfromgloballyinterconnectedpopulationsofhumans, synthetic agents, and information retrieval systems. 
+In addition, human groups behave on a spectrum from communal to hierarchical. Hierarchical structures produce stability and order. Egalitarian communities of peers 
+are 
+reverse 
+hierarchies 
+that 
+prevent 
+despotic 
+leaders 
+from 
+emerging 
+. 
+Egalitarian communities better support creativity and diversity. The way these natural systems interact with technology have produced complex, emergent behavior, starting with writing, continuing with mass communication, and our current web-based social networks. 
+Through most of our history, early and modern humans have lived in groups that ranged in size from tens to hundreds, and communication has been physical and direct. Communal and hierarchical structures existed in shifting balance. As well see later in The 
+Egalitarian 
+Ethos, 
+technology 
+influenced 
+this 
+balance, 
+start
+ing with the development of our most primal technologies language, weapons, and fire. For the first time, a group could find out what had happened somewhere else through language, and the members of that group could confront the offender with weapons. These developments shifted the balance towards egalitarianism. 
+2. This incident contributed to the US Supreme Court deciding in 1919 declaring the act falsely shouting fire in a theatre and causing a panic unconstitutional. 
+The later development of agriculture and the domestication of animals shifted the balance back to hierarchies. Technology continues to affect how we behave as groups. It can increase the capacity for complex ideas to emerge from groups of peers or increase the hierarchical domination of one group over others. 
+Individuals incorporate the massive complexity of physical and social reality into personalnarratives. Groupsintegratetheseintocommonknowledge,whichleads to common behaviors. This is what I call thinking as populations. The process of simplifying the complexity in the world to a representation that supports effective coordination is very general and has deep implications ranging from human and animal group behavior to artificial intelligence. Well look at a wide variety of examples, from animals on the Serengeti, to how money developed, to the surprising initial story of the Tower of Babel and how it applies to a spacecraft disintegrating in the Martian atmosphere. 
+We will explore how the process of building consensus can produce social facts that are often more powerful than any objective reality. We will also examine the interplay of independent thinkers and group players, of fashion leaders and followers, and how our modern information technologies are profoundly influencing our ability to navigate across these spaces. 
+Were going to look at the pieces that make up this mixture of instinct and technology. Well start with the basic rules of how individuals and groups behave in the presence of expensive information, and how that leads to beliefs ranging from science to religion to cults. Well then look at how communication technology interacts with our fundamental biases as tool-using primates, and how that can create population-scale information pathologies. 
+Lastly, well consider how these fundamental rules affect the development of Artificial Intelligence. The machines that we have built to manipulate information do not share our physics-based biases about how to interpret the world. The way that they store this information is fundamentally new. And the relationships between all the stories, posts, books, and articles are fixed in billions of values etched in computer memory. These machines can create stories based on what they have learned. And we can use these stories as a new way to understand ourselves. 
+We cant ask people to carefully describe their beliefs in repeatable ways. People get bored. They often tell researchers what they want to hear. They can change their minds. But in these giant AI models, those billions of values representing stories, posts, books, and articles are fixed. We can explore these relationships in ways that we never could before. Given a single starting point, these machines can generate countless narrative trajectories through these spaces. We can knit these trajectories into maps that reveal these relationships. 
+Later in this book, well look at some preliminary work in this area that builds maps of the places where conspiracy theories live. Well look at some of the most popular conspiracies, and well follow the stories that connect them. Well see how these beliefs relate to each other, and well learn that mapping these spaces is a way to better understand what we believe, who we are, and how we fit into the world around us. This new way of looking at ourselves, and it opens up ways of identifying and disrupting dangerous belief stampedes in ways that are surprisingly simple, and effective. 
+Belief is a place, and we are on the verge of finally being able to see where weve been living for all these years. 

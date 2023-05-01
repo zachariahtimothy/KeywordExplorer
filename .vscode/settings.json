@@ -1,0 +1,19 @@
+{
+  "typescript.preferences.quoteStyle": "single",
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.formatOnSave": false,
+  // tell the ESLint plugin to run on save
+  "eslint.validate": ["javascript", "typescript", "graphql"],
+  "eslint.workingDirectories": [
+    {
+      "mode": "auto"
+    }
+  ],
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": true
+  },
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "ionic.externalAddress": true,
+  "ionic.liveReload": true,
+  "ionic.previewInEditor": false
+}
