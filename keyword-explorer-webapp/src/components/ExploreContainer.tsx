@@ -1,25 +1,19 @@
 import "./ExploreContainer.css";
-import {
-  IonButton,
-  IonItem,
-  IonLabel,
-  IonModal,
-  IonSelect,
-  IonSelectOption,
-  IonText,
-  IonTextarea,
-} from "@ionic/react";
+import { IonButton, IonItem, IonLabel, IonTextarea } from "@ionic/react";
 import { useOpenAiStore } from "../modules/openAi";
-import { FormEventHandler, useRef } from "react";
-import { AppTypeahead } from "./AppTypeahead";
+import { FormEventHandler, Suspense, lazy } from "react";
+import { AppModelSelect } from "../modules/application";
 
+const ResponseErrorHandler = lazy(() =>
+  import("../modules/openAi").then(({ ResponseErrorHandler }) => ({
+    default: ResponseErrorHandler,
+  }))
+);
 interface ContainerProps {}
 
 const ExploreContainer: React.FC<ContainerProps> = () => {
   const createCompletion = useOpenAiStore((s) => s.createCompletion);
-  const models = useOpenAiStore((x) => x.models);
   const selectedModelId = useOpenAiStore((x) => x.selectedModelId);
-  const setSelectedModelId = useOpenAiStore((x) => x.setSelectedModelId);
   const handleSubmit: FormEventHandler<HTMLFormElement> = (event) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
@@ -30,7 +24,6 @@ const ExploreContainer: React.FC<ContainerProps> = () => {
       });
     }
   };
-  const modalRef = useRef<HTMLIonModalElement>(null);
   return (
     <div className="container">
       <form onSubmit={handleSubmit}>
@@ -40,47 +33,13 @@ const ExploreContainer: React.FC<ContainerProps> = () => {
             {selectedModelId}
           </div>
         </IonItem>
-        <IonModal trigger="select-models" ref={modalRef}>
-          <AppTypeahead
-            title="Select a model"
-            items={models?.map((x) => ({ text: x.id, value: x.id })) || []}
-            selectedItem={selectedModelId}
-            onSelectionCancel={() => modalRef.current?.dismiss()}
-            onSelectionChange={(item) => {
-              setSelectedModelId(item);
-              modalRef.current?.dismiss();
-            }}
-          />
-        </IonModal>
-        <IonSelect
-          label="Model"
-          aria-label="Models"
+        <AppModelSelect />
+        <IonTextarea
+          name="keywords"
           labelPlacement="stacked"
-          value={selectedModelId}
-          onIonChange={(event) => {
-            setSelectedModelId(event.detail.value);
-          }}
-          // interface="popover"
-          interfaceOptions={{
-            componentProps: {
-              style: {
-                minWidth: 400,
-              },
-            },
-          }}
-        >
-          {models?.map((model) => (
-            <IonSelectOption
-              key={model.id}
-              value={model.id}
-              aria-label={model.id}
-            >
-              {model.id}
-            </IonSelectOption>
-          ))}
-        </IonSelect>
-        <IonTextarea name="keywords" label="Keywords" />
-        <IonTextarea name="context" label="Context" />
+          label="Keywords"
+        />
+        <IonTextarea name="context" labelPlacement="stacked" label="Context" />
         <IonTextarea
           name="prompt"
           label="Prompt"
@@ -92,7 +51,9 @@ const ExploreContainer: React.FC<ContainerProps> = () => {
       </form>
       <CompletionResponses />
       {/* <CreateEmbedding /> */}
-      <ErrorHandler />
+      <Suspense fallback={null}>
+        <ResponseErrorHandler />
+      </Suspense>
     </div>
   );
 };
@@ -140,15 +101,6 @@ function CompletionResponses() {
           </div>
         ))}
       </div>
-    );
-  }
-  return null;
-}
-function ErrorHandler() {
-  const error = useOpenAiStore((x) => x.requestError);
-  if (error?.response) {
-    return (
-      <IonText color="danger">{error.response.data.error.message}</IonText>
     );
   }
   return null;

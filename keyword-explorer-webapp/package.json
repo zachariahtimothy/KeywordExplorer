@@ -2,6 +2,12 @@
   "name": "keyword-explorer",
   "version": "0.0.1",
   "private": true,
+  "scripts": {
+    "start": "vite",
+    "build": "vite build",
+    "test": "vitest --transformIgnorePatterns 'node_modules/(?!(@ionic/react|@ionic/react-router|@ionic/core|@stencil/core|ionicons)/)'",
+    "clean": "git clean -X -f -d -e \"!.env*\""
+  },
   "dependencies": {
     "@ionic/react": "^7.0.0",
     "@ionic/react-router": "^7.0.0",
@@ -50,11 +56,6 @@
     "vite-plugin-eslint": "^1.4.0",
     "vite-tsconfig-paths": "^4.0.3",
     "vitest": "^0.30"
-  },
-  "scripts": {
-    "start": "vite",
-    "build": "vite build",
-    "test": "vitest --transformIgnorePatterns 'node_modules/(?!(@ionic/react|@ionic/react-router|@ionic/core|@stencil/core|ionicons)/)'"
   },
   "eslintConfig": {
     "root": true,

@@ -1,1 +1,1 @@
-export * from './OpenAiProvider'
+export { default as OpenAiProvider } from "./OpenAiProvider";
