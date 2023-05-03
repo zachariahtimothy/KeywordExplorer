@@ -1,0 +1,21 @@
+.message-wrapper {
+  display: flex;
+  flex-direction: column;
+
+  .message {
+    max-width: 80%;
+  }
+
+  .user {
+    align-self: flex-start;
+    background-color: rgba(55, 55, 55, 0.5);
+  }
+
+  .assistant {
+    align-self: flex-end;
+    text-align: right;
+  }
+}
+
+
+
