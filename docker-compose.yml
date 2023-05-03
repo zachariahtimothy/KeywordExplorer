@@ -6,7 +6,7 @@ services:
     command: --default-authentication-plugin=mysql_native_password
     restart: always
     volumes:
-      - data:/docker-entrypoint-initdb.d
+      - db_data:/var/lib/mysql
     environment:
       MARIADB_DATABASE: gpt_summary
       MARIADB_ROOT_PASSWORD: dodgeram
@@ -44,4 +44,4 @@ networks:
   mysql-admin:
 
 volumes:
-  data:
+  db_data:
