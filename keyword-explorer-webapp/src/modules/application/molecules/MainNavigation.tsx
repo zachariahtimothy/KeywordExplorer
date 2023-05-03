@@ -5,6 +5,7 @@ export default function MainNavigation() {
     <IonButtons slot="end">
       <IonButton href="/home">Keyword Explorer</IonButton>
       <IonButton href="/chat">Chat</IonButton>
+      <IonButton href="/imageeditor">Image Editor</IonButton>
     </IonButtons>
   );
 }

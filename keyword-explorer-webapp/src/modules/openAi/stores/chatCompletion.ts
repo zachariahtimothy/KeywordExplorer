@@ -5,6 +5,7 @@ import { MainSlice, openAi } from "./main";
 type ConversationMessage = CreateChatCompletionRequest["messages"][0] & {
   id?: string;
 };
+
 export interface ChatCompletionSlice {
   conversationMessages: ConversationMessage[];
   createChatCompletion: (
@@ -52,7 +53,6 @@ export const createChatCompletionSlice: StateCreator<
             return parsed.choices[0].delta?.content || "";
           });
           const newUpdatesJoined = newUpdatesParsed.join("");
-
           const existingMessages = get().conversationMessages.map((x) => x);
           const existingMessageIndex = existingMessages.findLastIndex(
             (x) => x.role === "assistant" && x.id === id

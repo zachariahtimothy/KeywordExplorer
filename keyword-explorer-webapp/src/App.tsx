@@ -23,6 +23,7 @@ import "@ionic/react/css/display.css";
 import "./theme/variables.css";
 import OpenAiProvider from "./modules/openAi/providers/OpenAiProvider";
 import ChatPage from "./pages/Chat";
+import ImageEditorPage from "./pages/ImageEditor";
 
 setupIonicReact();
 
@@ -36,6 +37,9 @@ const App: React.FC = () => (
           </Route>
           <Route exact path="/chat">
             <ChatPage />
+          </Route>
+          <Route exact path="/imageeditor">
+            <ImageEditorPage />
           </Route>
           <Route exact path="/">
             <Redirect to="/home" />

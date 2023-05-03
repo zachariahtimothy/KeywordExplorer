@@ -51,7 +51,6 @@ function ChatForm() {
     const formData = new FormData(event.currentTarget);
     const prompt = formData.get("prompt") as string;
     const stream = Boolean(formData.get("stream"));
-    const messages = responses.concat({ content: prompt, role: "user" });
     if (prompt) {
       createChatCompletion({
         stream,
