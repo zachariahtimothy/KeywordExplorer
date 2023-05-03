@@ -1,6 +1,7 @@
 import "./Chat.css";
 import {
   IonButton,
+  IonCheckbox,
   IonContent,
   IonHeader,
   IonPage,
@@ -43,26 +44,18 @@ export default function ChatPage() {
 function ChatForm() {
   const createChatCompletion = useOpenAiStore((s) => s.createChatCompletion);
   const promptRef = useRef<HTMLIonTextareaElement>(null);
-  const responses = useOpenAiStore((s) => s.chatResponses);
-  const existingMessages = responses.reduce((accumulator, response) => {
-    response.choices.forEach((choice) => {
-      if (choice.message) {
-        accumulator.push({
-          role: choice.message.role,
-          content: choice.message.content,
-        });
-      }
-    });
-    return accumulator;
-  }, [] as CreateChatCompletionRequest["messages"]);
+  const responses = useOpenAiStore((s) => s.conversationMessages);
+  console.log("responses", responses);
   const handleSubmit: FormEventHandler<HTMLFormElement> = (event) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const prompt = formData.get("prompt") as string;
-    const messages = existingMessages.concat({ content: prompt, role: "user" });
+    const stream = Boolean(formData.get("stream"));
+    const messages = responses.concat({ content: prompt, role: "user" });
     if (prompt) {
       createChatCompletion({
-        messages,
+        stream,
+        messages: [{ content: prompt, role: "user" }],
       });
       if (promptRef.current) {
         promptRef.current.value = "";
@@ -82,6 +75,11 @@ function ChatForm() {
         />
 
         <IonButton type="submit">Send</IonButton>
+        <div>
+          <IonCheckbox name="stream" checked>
+            Stream?
+          </IonCheckbox>
+        </div>
       </form>
     </div>
   );
