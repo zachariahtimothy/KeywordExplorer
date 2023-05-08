@@ -9,8 +9,12 @@
     "clean": "git clean -X -f -d -e \"!.env*\""
   },
   "dependencies": {
+    "@capacitor-community/sqlite": "^4.8.0-0",
+    "@capacitor/core": "^5.0.1",
     "@ionic/react": "^7.0.0",
     "@ionic/react-router": "^7.0.0",
+    "comlink": "^4.4.1",
+    "danfojs": "^1.1.2",
     "history": "^4.9.0",
     "ionicons": "^7.0.0",
     "openai": "^3.2.1",
@@ -50,9 +54,11 @@
     "eslint-plugin-prettier": "^4.0.0",
     "eslint-plugin-react": "^7.31.11",
     "eslint-plugin-react-hooks": "^4.6.0",
+    "jeep-sqlite": "^2.3.3",
     "prettier": "^2.8",
     "typescript": "^5.0",
     "vite": "^4.3.3",
+    "vite-plugin-comlink": "^3.0",
     "vite-plugin-eslint": "^1.4.0",
     "vite-tsconfig-paths": "^4.0.3",
     "vitest": "^0.30"

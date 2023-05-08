@@ -24,6 +24,7 @@ import "./theme/variables.css";
 import OpenAiProvider from "./modules/openAi/providers/OpenAiProvider";
 import ChatPage from "./pages/Chat";
 import ImageEditorPage from "./pages/ImageEditor";
+import ContextExplorerPage from "./pages/ContextExplorer";
 
 setupIonicReact();
 
@@ -40,6 +41,9 @@ const App: React.FC = () => (
           </Route>
           <Route exact path="/imageeditor">
             <ImageEditorPage />
+          </Route>
+          <Route exact path="/context">
+            <ContextExplorerPage />
           </Route>
           <Route exact path="/">
             <Redirect to="/home" />
