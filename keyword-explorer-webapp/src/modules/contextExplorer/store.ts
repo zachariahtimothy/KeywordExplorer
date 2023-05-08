@@ -8,14 +8,15 @@ import { FormEventHandler } from "react";
 import { DataFrame } from "danfojs/dist/danfojs-browser/src/index";
 import { getDb } from "../../lib/db";
 import { CreateEmbeddingResponse } from "openai";
-import {
-  SQLiteConnection,
-  SQLiteDBConnection,
-} from "@capacitor-community/sqlite";
+import { SQLiteDBConnection } from "@capacitor-community/sqlite";
 
 const worker = new ComlinkWorker<typeof import("./worker")>(
   new URL("./worker", import.meta.url)
 );
+
+const openAiEmbeddings = new ComlinkWorker<
+  typeof import("./openAiEmbeddings.worker")
+>(new URL("./openAiEmbeddings.worker", import.meta.url));
 
 const DEFAULT_EMBEDDING_MODEL = "text-embedding-ada-002";
 
