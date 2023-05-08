@@ -15,6 +15,7 @@ downloads/
 eggs/
 .eggs/
 lib/
+!keyword-explorer-webapp/src/lib/
 lib64/
 parts/
 sdist/
