@@ -8,7 +8,6 @@ import { FormEventHandler } from "react";
 import { DataFrame } from "danfojs/dist/danfojs-browser/src/index";
 import { getDb } from "../../lib/db";
 import { CreateEmbeddingResponse } from "openai";
-import { SQLiteDBConnection } from "@capacitor-community/sqlite";
 
 const worker = new ComlinkWorker<typeof import("./worker")>(
   new URL("./worker", import.meta.url)
@@ -124,6 +123,11 @@ export const createCorporaExplorerSlice: StateCreator<
       throw new Error(`Unable to find project ${targetName} ${groupName}`);
     }
     const projectId = results.values[0].id;
+
+    openAiEmbeddings.summaryizeRawText(db, {
+      targetName,
+      groupName,
+    });
     await db.close();
     // console.log("df", df);
 
@@ -139,19 +143,3 @@ export const useContextExplorerStore = create<Store>((...a) => ({
   ...createCompletionSlice(...a),
   ...createCorporaExplorerSlice(...a),
 }));
-
-class OpenAiEmbeddings {
-  constructor(private db: SQLiteDBConnection) {}
-
-  async init() {
-    await this.db.open();
-  }
-
-  async summaryizeRawText(props: {
-    targetName: string;
-    groupName: string;
-    maxLines?: number;
-  }) {
-    const { targetName, groupName, maxLines = -1 } = props;
-  }
-}
