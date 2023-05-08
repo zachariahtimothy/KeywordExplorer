@@ -8,14 +8,11 @@ import { FormEventHandler } from "react";
 import { DataFrame } from "danfojs/dist/danfojs-browser/src/index";
 import { getDb } from "../../lib/db";
 import { CreateEmbeddingResponse } from "openai";
+import OpenAiEmbeddings from "./openAiEmbeddings";
 
 const worker = new ComlinkWorker<typeof import("./worker")>(
   new URL("./worker", import.meta.url)
 );
-
-const openAiEmbeddings = new ComlinkWorker<
-  typeof import("./openAiEmbeddings.worker")
->(new URL("./openAiEmbeddings.worker", import.meta.url));
 
 const DEFAULT_EMBEDDING_MODEL = "text-embedding-ada-002";
 
@@ -41,9 +38,7 @@ interface ContextExplorerSlice {}
 
 interface CorporaSlice {
   projects: any[];
-  selectedProject: any;
   summaryLevels: any[];
-  selectedSummaryLevel: any;
   parseRegex: string;
   onFormSubmit: FormEventHandler<HTMLFormElement>;
 }
@@ -60,9 +55,7 @@ export const createCorporaExplorerSlice: StateCreator<
   CorporaSlice
 > = (set, get) => ({
   projects: [],
-  selectedProject: null,
   summaryLevels: [],
-  selectedSummaryLevel: null,
   parseRegex: "([.!?()]+)",
   onFormSubmit: async (event) => {
     event.preventDefault();
@@ -77,8 +70,9 @@ export const createCorporaExplorerSlice: StateCreator<
     const db = await getDb();
     await db.open();
 
+    console.info("Getting embeddings");
     const embeddings = await getEmbeddings(fileLines);
-    console.log("embeddings", embeddings);
+
     const dList = fileLines.map((text, index) => {
       const { embedding } = embeddings[index];
       return {
@@ -86,49 +80,30 @@ export const createCorporaExplorerSlice: StateCreator<
         embedding,
       };
     });
-    console.log("dList", dList);
     const dataFrame = new DataFrame(dList);
-    console.log("data frame", dataFrame);
-    const sourceQueryResults = await db.query(
-      `SELECT * FROM table_source WHERE text_name = ? AND group_name = ?;`,
-      [targetName, groupName]
-    );
-    let sourceId = sourceQueryResults.values?.[0]?.id;
-    if (!sourceQueryResults.values || !sourceQueryResults.values.length) {
-      console.info(
-        `No db entry for '${targetName}' '${groupName}': creating entry`
-      );
-      const insertResults = await db.query(
-        `INSERT INTO table_source (text_name, group_name) VALUES (?, ?);`,
-        [targetName, groupName]
-      );
-      console.log("insertResults", insertResults);
-      sourceId = insertResults.values?.[0]?.id;
-    }
-    console.log("Source Id", sourceId);
-    dataFrame.values.forEach(async (row) => {
-      // console.log("df row", row);
-      const castRow = row as [string, number[]];
-      const query = `INSERT INTO gpt_summary.table_parsed_text (source, parsed_text, embedding) VALUES (?, ?, ?)`;
-      await db.query(query, [sourceId, castRow[0], castRow[1]]);
-    });
+    console.log("Storing dataframe", dataFrame);
+    const openAiEmbeddings = new OpenAiEmbeddings(db, openAi);
 
-    // summarize_raw_text
-    const results = await db.query(
-      "SELECT * FROM table_source WHERE text_name = ? and group_name = ?",
-      [targetName, groupName]
-    );
-    console.log("summaryic", results);
-    if (!results.values) {
-      throw new Error(`Unable to find project ${targetName} ${groupName}`);
-    }
-    const projectId = results.values[0].id;
+    try {
+      await openAiEmbeddings.storeProjectData({
+        targetName,
+        groupName,
+        dataFrame,
+      });
 
-    openAiEmbeddings.summaryizeRawText(db, {
-      targetName,
-      groupName,
-    });
-    await db.close();
+      console.log("ContextExplorer.load_file_callback(): Summarizing Level 1");
+      await openAiEmbeddings.summaryizeRawText({
+        targetName,
+        groupName,
+        model: get().selectedModelId,
+        maxTokens: 256,
+      });
+    } catch (error) {
+      console.error("err", error);
+    } finally {
+      await db.close();
+    }
+
     // console.log("df", df);
 
     // console.log("fileData", fileLines);

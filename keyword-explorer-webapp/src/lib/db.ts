@@ -50,9 +50,22 @@ CREATE TABLE IF NOT EXISTS table_summary_text (
   embedding BLOB,
   origins TEXT,
   moderation TEXT,
-  sql_deleted BOOLEAN DEFAULT 0 CHECK (sql_deleted IN (0, 1)),
+sql_deleted BOOLEAN DEFAULT 0 CHECK (sql_deleted IN (0, 1)),
   last_modified INTEGER DEFAULT (strftime('%s', 'now'))
 );
+
+CREATE VIEW IF NOT EXISTS source_text_view
+AS
+SELECT
+  's'.'id' AS 'source_id',
+  's'.'text_name' AS 'text_name',
+  's'.'group_name' AS 'group_name',
+  'p'.'id' AS 'text_id',
+  'p'.'summary_id' AS 'summary_id',
+  'p'.'parsed_text' AS 'parsed_text',
+  'p'.'embedding' AS 'embedding',
+  'p'.'moderation' AS 'moderation'
+FROM ('table_source' 's' JOIN 'table_parsed_text' 'p' ON ('p'.'source' = 's'.'id'))
 `;
 
 export async function initDb(destroyFirst = false) {
@@ -65,7 +78,7 @@ export async function initDb(destroyFirst = false) {
     return;
   }
 
-  const results = await db.execute(createTables);
+  const results = await db.execute(createTables.replaceAll("\n", " "));
   if ((results.changes?.changes || 0) < 0) {
     console.error("createTables failed", results);
   }
