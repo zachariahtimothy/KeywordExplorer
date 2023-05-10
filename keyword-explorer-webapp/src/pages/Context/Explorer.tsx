@@ -3,25 +3,34 @@ import {
   IonButtons,
   IonContent,
   IonHeader,
-  IonInput,
   IonItem,
   IonLabel,
   IonPage,
+  IonRadio,
+  IonRadioGroup,
   IonSelect,
   IonSelectOption,
   IonTextarea,
   IonTitle,
   IonToolbar,
 } from "@ionic/react";
-import "./Home.css";
-import { AppMainNavigation, AppModelSelect } from "../modules/application";
-import { FormEventHandler, useState } from "react";
-import { ImagesResponse } from "openai";
-import { useOpenAiStore } from "../modules/openAi";
-import { useContextExplorerStore } from "../modules/contextExplorer/store";
-import { getDb } from "../lib/db";
+import "../Home.css";
+import { AppMainNavigation, AppModelSelect } from "../../modules/application";
+import { FormEventHandler, useEffect, useState } from "react";
+import { useOpenAiStore } from "../../modules/openAi";
+import {
+  explorerActions,
+  useContextExplorerStore,
+} from "../../modules/contextExplorer/store";
+import { getDb } from "../../lib/db";
 
 const ContextExplorerPage: React.FC = () => {
+  const initContextExplorer = useContextExplorerStore((s) => s.init);
+
+  useEffect(() => {
+    initContextExplorer();
+  }, [initContextExplorer]);
+
   return (
     <IonPage>
       <IonHeader>
@@ -38,7 +47,7 @@ const ContextExplorerPage: React.FC = () => {
         </IonHeader>
         <div className="container">
           <ModelSelect />
-          <CorporaForm />
+          <ExplorerForm />
           <IonButtons>
             <IonButton
               onClick={async () => {
@@ -72,8 +81,9 @@ const ContextExplorerPage: React.FC = () => {
               Clear DB
             </IonButton>
           </IonButtons>
-          <br />
-          <DatabaseExplorer />
+          <div style={{ marginTop: 50 }}>
+            <DatabaseExplorer />
+          </div>
         </div>
       </IonContent>
     </IonPage>
@@ -82,6 +92,60 @@ const ContextExplorerPage: React.FC = () => {
 
 export default ContextExplorerPage;
 
+function ExplorerForm() {
+  const projects = useContextExplorerStore((s) => s.projectOptions);
+  const summaryLevelOptions = useContextExplorerStore(
+    (s) => s.summaryLevelOptions
+  );
+  const onProjectSelected = useContextExplorerStore((s) => s.onProjectSelected);
+  const onFormSubmit = useContextExplorerStore((s) => s.onFormSubmit);
+  return (
+    <form onSubmit={onFormSubmit}>
+      <IonSelect label="Projects" onIonChange={onProjectSelected}>
+        {projects.map((project) => (
+          <IonSelectOption value={project.name} key={project.name}>
+            {project.name}
+          </IonSelectOption>
+        ))}
+      </IonSelect>
+      <IonSelect label="Summary Levels">
+        {summaryLevelOptions.map((item) => (
+          <IonSelectOption value={item} key={item}>
+            {item}
+          </IonSelectOption>
+        ))}
+      </IonSelect>
+      <IonTextarea name="context" label="Context" labelPlacement="stacked" />
+      <IonTextarea name="prompt" label="Prompt" labelPlacement="stacked" />
+      <IonRadioGroup name="action">
+        <IonLabel>Actions</IonLabel>
+        {explorerActions.map((action) => (
+          <IonRadio
+            key={action.value}
+            labelPlacement="end"
+            value={action.value}
+          >
+            {action.text}
+          </IonRadio>
+        ))}
+      </IonRadioGroup>
+      <fieldset>
+        <legend>Automatic</legend>
+        <IonButtons>
+          <IonButton>Question</IonButton>
+        </IonButtons>
+      </fieldset>
+      <IonButtons>
+        <IonButton type="reset" color="dark">
+          Clear
+        </IonButton>
+        <IonButton type="submit" color="primary" fill="outline">
+          Submit
+        </IonButton>
+      </IonButtons>
+    </form>
+  );
+}
 function ModelSelect() {
   const selectedModelId = useOpenAiStore((s) => s.selectedModelId);
   return (
@@ -97,86 +161,8 @@ function ModelSelect() {
   );
 }
 
-const numberOfSummaryLevels = 4;
-function CorporaForm() {
-  const onFormSubmit = useContextExplorerStore((s) => s.onFormSubmit);
-
-  const [summaryLevel, setSummaryLevel] = useState(1);
-
-  return (
-    <form onSubmit={onFormSubmit}>
-      <fieldset>
-        <legend>Target</legend>
-        <IonInput
-          name="targetName"
-          label="Name"
-          labelPlacement="stacked"
-          placeholder="Name of book: stampede"
-          required
-        />
-        <IonInput
-          name="targetGroup"
-          label="Group"
-          labelPlacement="stacked"
-          placeholder="Chapter / Section: ch1"
-          required
-        />
-        <input type="hidden" name="summaryLevel" value={summaryLevel} />
-        <IonSelect
-          label="Summary Level"
-          value={summaryLevel}
-          onIonChange={(event) => {
-            setSummaryLevel(event.detail.value);
-          }}
-        >
-          {Array.from({ length: numberOfSummaryLevels }, (_value, index) => (
-            <IonSelectOption key={index} value={index + 1}>
-              {index + 1}
-            </IonSelectOption>
-          ))}
-        </IonSelect>
-      </fieldset>
-      <IonInput
-        name="parseRegex"
-        label="Parse Regex"
-        labelPlacement="stacked"
-        // value="[.!?()]"
-        value="([.?()!])"
-      />
-
-      <input name="file" type="file" accept="text/*" required />
-      <IonButton>Test</IonButton>
-      <IonButton type={"submit"}>Save</IonButton>
-    </form>
-  );
-}
-function GptForm() {
-  const [imageUrls, setImageUrls] = useState<ImagesResponse["data"]>([]);
-  const [imagePreview, setImagePreview] = useState<string>("");
-  const [loading, setLoading] = useState(false);
-  return (
-    <>
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          const formData = new FormData(event.currentTarget);
-          console.log("form data", formData);
-          const prompt = formData.get("prompt") as string;
-
-          setLoading(true);
-        }}
-      >
-        <IonTextarea label="Prompt" rows={5} name="prompt" />
-        <IonButton type="submit" disabled={loading}>
-          Create Variation
-        </IonButton>
-      </form>
-    </>
-  );
-}
-
 function DatabaseExplorer() {
-  const [results, setResults] = useState([]);
+  const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const handleSubmit: FormEventHandler<HTMLFormElement> = async (event) => {
     event.preventDefault();
@@ -200,7 +186,7 @@ function DatabaseExplorer() {
   };
   return (
     <form onSubmit={handleSubmit}>
-      <IonTextarea name="query" />
+      <IonTextarea name="query" label="Query" labelPlacement="stacked" />
       <IonButton type="submit" disabled={loading}>
         Execute
       </IonButton>

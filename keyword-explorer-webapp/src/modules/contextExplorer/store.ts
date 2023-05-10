@@ -1,5 +1,5 @@
 import { StateCreator, create } from "zustand";
-import { MainSlice, createMainSlice, openAi } from "../openAi/stores/main";
+import { MainSlice, createMainSlice } from "../openAi/stores/main";
 import {
   CompletionSlice,
   createCompletionSlice,
@@ -7,114 +7,131 @@ import {
 import { FormEventHandler } from "react";
 import { DataFrame } from "danfojs/dist/danfojs-browser/src/index";
 import { getDb } from "../../lib/db";
-import { CreateEmbeddingResponse } from "openai";
-import OpenAiEmbeddings from "./openAiEmbeddings";
+import type { JSX } from "@ionic/core";
 
-const worker = new ComlinkWorker<typeof import("./worker")>(
-  new URL("./worker", import.meta.url)
-);
+export const explorerActions = [
+  { text: "Ask Question", value: "askQuestion" },
+  { text: "Summarize", value: "summarize" },
+  { text: "Narrative", value: "narrative" },
+  { text: "Extend", value: "extend" },
+];
 
-const DEFAULT_EMBEDDING_MODEL = "text-embedding-ada-002";
-
-async function getEmbeddings(fileLines: string[], submitSize = 10, max = -1) {
-  // const linesToSubmit = fileLines.filter((_, index) => index < submitSize);
-  const chunks = (await worker.chunkArray(fileLines, submitSize)) as string[][];
-
-  async function getEmbeddingChunk(input: string[]) {
-    const { data } = await openAi.createEmbedding({
-      model: DEFAULT_EMBEDDING_MODEL,
-      input,
-    });
-    return data;
-  }
-  const results = await Promise.all(chunks.map(getEmbeddingChunk));
-
-  return results.reduce((accumulator, item) => {
-    item.data.forEach((x) => accumulator.push(x));
-    return accumulator;
-  }, [] as CreateEmbeddingResponse["data"]);
+interface Project {
+  name: string;
 }
-interface ContextExplorerSlice {}
-
-interface CorporaSlice {
-  projects: any[];
-  summaryLevels: any[];
-  parseRegex: string;
+interface ContextExplorerSlice {
+  projectOptions: Project[];
+  selectedProjectId: string | null;
+  projectIdList: string[];
+  initComplete: boolean;
+  summaryLevelOptions: string[];
+  init: () => Promise<void>;
+  onProjectSelected: JSX.IonSelect["onIonChange"];
   onFormSubmit: FormEventHandler<HTMLFormElement>;
 }
-interface Store
-  extends MainSlice,
-    CompletionSlice,
-    ContextExplorerSlice,
-    CorporaSlice {}
 
-export const createCorporaExplorerSlice: StateCreator<
-  MainSlice & CompletionSlice & ContextExplorerSlice & CorporaSlice,
+export const createExplorerSlice: StateCreator<
+  MainSlice & CompletionSlice & ContextExplorerSlice,
   [],
   [],
-  CorporaSlice
+  ContextExplorerSlice
 > = (set, get) => ({
-  projects: [],
-  summaryLevels: [],
-  parseRegex: "([.!?()]+)",
-  onFormSubmit: async (event) => {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    const targetName = formData.get("targetName") as string;
-    const groupName = formData.get("targetGroup") as string;
-    const summaryLevel = parseInt(formData.get("summaryLevel") as string);
-    const file = formData.get("file") as File;
-    const parseRegex = formData.get("parseRegex") as string;
-    const fileLines = await worker.parseFileText(file, new RegExp(parseRegex));
+  projectOptions: [],
+  selectedProjectId: null,
+  projectIdList: [],
+  summaryLevelOptions: ["all", "raw only", "all summaries"],
+  initComplete: false,
+  onProjectSelected: async ({ detail }) => {
+    const { value } = detail;
+    const [textName, groupName] = (value as string).split(":");
 
     const db = await getDb();
     await db.open();
 
-    console.info("Getting embeddings");
-    const embeddings = await getEmbeddings(fileLines);
-
-    const dList = fileLines.map((text, index) => {
-      const { embedding } = embeddings[index];
-      return {
-        text,
-        embedding,
-      };
-    });
-    const dataFrame = new DataFrame(dList);
-    console.log("Storing dataframe", dataFrame);
-    const openAiEmbeddings = new OpenAiEmbeddings(db, openAi);
-
     try {
-      await openAiEmbeddings.storeProjectData({
-        targetName,
-        groupName,
-        dataFrame,
-      });
-
-      console.log("ContextExplorer.load_file_callback(): Summarizing Level 1");
-      await openAiEmbeddings.summaryizeRawText({
-        targetName,
-        groupName,
-        model: get().selectedModelId,
-        maxTokens: 256,
-      });
-    } catch (error) {
-      console.error("err", error);
+      let query = "SELECT id FROM table_source WHERE group_name = ?";
+      if (textName !== "*") {
+        query += " AND text_name = ?";
+      }
+      const results = await db.query(query, [groupName, textName]);
+      const selectedProjectId = results.values?.[0]?.id;
+      if (results.values?.length) {
+        set({
+          selectedProjectId: results.values[0].id,
+          projectIdList: results.values.map((x) => x.id),
+        });
+      }
+      if (selectedProjectId) {
+        const distinctLevelResult = await db.query(
+          "select distinct level from table_summary_text where source = ?",
+          [selectedProjectId]
+        );
+        if (distinctLevelResult.values?.length) {
+          const newSummaryLevelOptions = get().summaryLevelOptions.concat(
+            distinctLevelResult.values.map((x) => `${x.level}`)
+          );
+          set({
+            summaryLevelOptions: newSummaryLevelOptions,
+          });
+        }
+      }
     } finally {
       await db.close();
     }
+  },
+  onFormSubmit: async (event) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const summaryLevel = formData.get("summaryLevel") as string;
+    const context = formData.get("context") as string;
+    const prompt = formData.get("prompt") as string;
+    console.log("createExplorerSlice form", formData.get("action"));
+  },
+  init: async () => {
+    if (get().initComplete) {
+      return;
+    }
+    const db = await getDb();
+    await db.open();
 
-    // console.log("df", df);
+    try {
+      const results = await db.query(
+        "SELECT * FROM table_source ORDER BY group_name, text_name"
+      );
+      const entries = await db.query(
+        "SELECT group_name, count(group_name) AS entries FROM table_source group by group_name"
+      );
+      let previousName = "NO-PREV-NAME";
+      const projectOptions = results.values?.reduce((accumulator, value) => {
+        const { text_name, group_name } = value;
+        entries.values?.forEach((entry) => {
+          if (
+            entry.group_name === group_name &&
+            entry.entries > 1 &&
+            previousName != group_name
+          ) {
+            accumulator.push({ name: `*:${group_name}` });
+          }
+        });
+        accumulator.push({ name: `${text_name}:${group_name}` });
+        previousName = group_name;
+        return accumulator;
+      }, [] as Project[]);
 
-    // console.log("fileData", fileLines);
-    // formData.forEach((value, key) => {
-    //   console.log("d, d", key, value);
-    // });
+      set({
+        initComplete: true,
+        projectOptions,
+      });
+    } finally {
+      await db.close();
+    }
   },
 });
+
+interface Store extends MainSlice, CompletionSlice, ContextExplorerSlice {}
 
 export const useContextExplorerStore = create<Store>((...a) => ({
   ...createMainSlice(...a),
   ...createCompletionSlice(...a),
-  ...createCorporaExplorerSlice(...a),
+  ...createExplorerSlice(...a),
 }));
