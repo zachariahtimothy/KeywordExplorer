@@ -120,4 +120,13 @@ export class OpenAiComs {
       }
     }
   }
+
+  /**
+   * Original: get_embedding
+   */
+  public async getEmbedding(text: string, model = "text-embedding-ada-002") {
+    const input = text.replaceAll("\n", " ");
+
+    return this.openAi.createEmbedding({ input, model });
+  }
 }

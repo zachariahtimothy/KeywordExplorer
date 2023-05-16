@@ -54,18 +54,19 @@ sql_deleted BOOLEAN DEFAULT 0 CHECK (sql_deleted IN (0, 1)),
   last_modified INTEGER DEFAULT (strftime('%s', 'now'))
 );
 
-CREATE VIEW IF NOT EXISTS source_text_view
-AS
-SELECT
-  's'.'id' AS 'source_id',
-  's'.'text_name' AS 'text_name',
-  's'.'group_name' AS 'group_name',
-  'p'.'id' AS 'text_id',
-  'p'.'summary_id' AS 'summary_id',
-  'p'.'parsed_text' AS 'parsed_text',
-  'p'.'embedding' AS 'embedding',
-  'p'.'moderation' AS 'moderation'
-FROM ('table_source' 's' JOIN 'table_parsed_text' 'p' ON ('p'.'source' = 's'.'id'))
+CREATE VIEW IF NOT EXISTS source_text_view AS
+SELECT s.id AS source_id, s.text_name AS text_name, s.group_name AS group_name,
+       p.id AS text_id, p.summary_id AS summary_id, p.parsed_text AS parsed_text,
+       p.embedding AS embedding, p.moderation AS moderation
+FROM table_source s JOIN table_parsed_text p ON p.source = s.id;
+
+CREATE VIEW IF NOT EXISTS summary_text_view AS
+SELECT ts.id AS proj_id, ts.text_name AS text_name, ts.group_name AS group_name,
+       tst.id AS text_id, tst.summary_id AS summary_id, tst.level AS level,
+       tst.summary_text AS parsed_text, tst.embedding AS embedding, tst.origins AS origins,
+       tst.moderation AS moderation
+FROM table_summary_text tst
+JOIN table_source ts ON tst.source = ts.id;
 `;
 
 export async function initDb(destroyFirst = false) {

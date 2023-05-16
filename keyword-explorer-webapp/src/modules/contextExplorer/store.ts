@@ -1,13 +1,40 @@
 import { StateCreator, create } from "zustand";
-import { MainSlice, createMainSlice } from "../openAi/stores/main";
+import { MainSlice, createMainSlice, openAi } from "../openAi/stores/main";
 import {
   CompletionSlice,
   createCompletionSlice,
 } from "../openAi/stores/completion";
 import { FormEventHandler } from "react";
-import { DataFrame } from "danfojs/dist/danfojs-browser/src/index";
+import {
+  DataFrame,
+  concat as danfoConcat,
+} from "danfojs/dist/danfojs-browser/src/index";
 import { getDb } from "../../lib/db";
 import type { JSX } from "@ionic/core";
+import OpenAiEmbeddings from "./openAiEmbeddings";
+import { randomNumber, range } from "../../lib/utilities";
+
+// const pyWorker = new ComlinkWorker<typeof import("./py.worker")>(
+//   new URL("./py.worker.ts", import.meta.url)
+// );
+// const pyodideWorker = new ComlinkWorker<typeof import("./pyodide.worker")>(
+//   new URL("./pyodide.worker.ts", import.meta.url)
+// );
+
+// const result = await pyWorker.executeScript(
+//   pyodideWorker,
+//   "testMe",
+//   "say",
+//   [1, 2]
+// );
+
+export type AutomaticPromptType =
+  | "question"
+  | "tweet"
+  | "science tweet"
+  | "thread"
+  | "factoid"
+  | "press release";
 
 export const explorerActions = [
   { text: "Ask Question", value: "askQuestion" },
@@ -15,6 +42,8 @@ export const explorerActions = [
   { text: "Narrative", value: "narrative" },
   { text: "Extend", value: "extend" },
 ];
+
+const defaultSummaryLevelOptions = ["all", "raw only", "all summaries"];
 
 interface Project {
   name: string;
@@ -26,24 +55,161 @@ interface ContextExplorerSlice {
   initComplete: boolean;
   summaryLevelOptions: string[];
   init: () => Promise<void>;
-  onProjectSelected: JSX.IonSelect["onIonChange"];
+  onProjectSelected: (value: string) => void;
   onFormSubmit: FormEventHandler<HTMLFormElement>;
+  onAutomaticButtonClick: (type: AutomaticPromptType) => void;
+  dataFrame: DataFrame | null;
+  prompt: string;
+  contextField: string;
+  sourcesField: string;
+  responseField: string;
+  onTextareaChange: NonNullable<JSX.IonTextarea["onIonInput"]>;
 }
 
 export const createExplorerSlice: StateCreator<
-  MainSlice & CompletionSlice & ContextExplorerSlice,
+  Store,
   [],
-  [],
+  [["zustand/persist", ContextExplorerSlice]],
   ContextExplorerSlice
 > = (set, get) => ({
   projectOptions: [],
   selectedProjectId: null,
   projectIdList: [],
-  summaryLevelOptions: ["all", "raw only", "all summaries"],
+  dataFrame: null,
+  prompt: "",
+  contextField: "",
+  sourcesField: "",
+  responseField: "",
+  summaryLevelOptions: defaultSummaryLevelOptions,
   initComplete: false,
-  onProjectSelected: async ({ detail }) => {
-    const { value } = detail;
-    const [textName, groupName] = (value as string).split(":");
+  onTextareaChange: (event) => {
+    const name = event.target.name;
+    set({
+      [name]: event.detail.value,
+    });
+  },
+  onAutomaticButtonClick: async (type) => {
+    const df = get().dataFrame;
+    if (!df) {
+      throw new Error(
+        "onAutomaticButtonClick: No data frame, please select a project first"
+      );
+    }
+    const numberOfLines = 10;
+    const max =
+      df.index.length > numberOfLines
+        ? df.index.length - numberOfLines
+        : df.index.length;
+    const firstLine = randomNumber(0, max);
+    const columnIndex = df.columns.findIndex((x) => x === "parsed_text");
+    //  s = self.project_df.iloc[first_line]['parsed_text']
+    console.log("first line", df);
+    const s = df.iloc({ rows: [firstLine], columns: [columnIndex] });
+
+    let promptType = "short question";
+    switch (type) {
+      case "question":
+        promptType = "short question";
+        break;
+      case "tweet":
+        promptType = "short tweet";
+        break;
+      case "factoid":
+        promptType = "factiod";
+        break;
+      case "science tweet":
+        promptType = "short tweet in the style of Science Twitter";
+        break;
+      case "thread":
+        promptType = "science Twitter thread";
+        break;
+      case "press release":
+        {
+          let topic = get().prompt;
+          if (topic.length < 3) {
+            topic = "the book Stampede Theory, by Philip Feldman";
+            set({
+              prompt: topic,
+            });
+            promptType = `press release for ${topic}`;
+          }
+        }
+        break;
+    }
+    let contextString = `Create a ${promptType} that uses the following context\n\nContext:${s.values.at(
+      0
+    )}`;
+    const originsList: number[] = [];
+    for (const i of range(firstLine + 1, firstLine + numberOfLines, 1)) {
+      if (df.values?.[i]) {
+        try {
+          const series = df.iloc({ rows: [i] });
+          const o = series.column("origins");
+          try {
+            console.log("series", series, series.values, o);
+          } catch (error) {
+            console.error("error", error);
+            df.iloc({ rows: [i] });
+          }
+
+          const parsedText = series.at("", "parsed_text");
+          if (parsedText) {
+            contextString += `\n\n###\n\n${parsedText}`;
+          }
+
+          // const origins = series.at("", "origins");
+          const origins = series.column("origins");
+          console.log("origins loop", origins);
+          if (origins.values) {
+            origins.values.forEach((x) => originsList.push(x as number));
+          }
+          console.log("i", i, parsedText);
+        } catch (error) {
+          console.log("no series");
+        }
+      }
+    }
+    contextString += `\n\n:${promptType}`;
+    set({
+      contextField: contextString,
+    });
+    const db = await getDb();
+    await db.open();
+
+    const oae = new OpenAiEmbeddings(db, openAi);
+    try {
+      const origins = await oae.getOriginsText(originsList);
+      set({
+        sourcesField: origins.join("\n\n"),
+      });
+      console.log("origins", origins);
+      const question = await oae.getResponse(contextString, {
+        maxTokens: 512,
+        model: get().selectedModelId,
+      });
+      console.log("question", question);
+      if (type === "question") {
+        set({
+          prompt: question,
+        });
+      } else {
+        set({
+          responseField: question,
+        });
+      }
+      // if type == PROMPT_TYPE.QUESTION:
+      //       self.prompt_text_field.set_text(question)
+      //   else:
+      //       self.response_text_field.set_text(question)
+      //   self.tab_control.select(0)
+    } catch (error) {
+      console.log("error", error);
+    } finally {
+      await db.close();
+    }
+  },
+  onProjectSelected: async (value) => {
+    const [textName, groupName] = value.split(":");
 
     const db = await getDb();
     await db.open();
@@ -63,11 +229,11 @@ export const createExplorerSlice: StateCreator<
       }
       if (selectedProjectId) {
         const distinctLevelResult = await db.query(
-          "select distinct level from table_summary_text where source = ?",
+          "select distinct level FROM table_summary_text WHERE source = ?",
           [selectedProjectId]
         );
         if (distinctLevelResult.values?.length) {
-          const newSummaryLevelOptions = get().summaryLevelOptions.concat(
+          const newSummaryLevelOptions = defaultSummaryLevelOptions.concat(
             distinctLevelResult.values.map((x) => `${x.level}`)
           );
           set({
@@ -82,15 +248,102 @@ export const createExplorerSlice: StateCreator<
   onFormSubmit: async (event) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
+    const projectId = formData.get("projectId") as string;
     const summaryLevel = formData.get("summaryLevel") as string;
     const context = formData.get("context") as string;
     const prompt = formData.get("prompt") as string;
     console.log("createExplorerSlice form", formData.get("action"));
+
+    if (!projectId) {
+      throw new Error("Please select or create data first");
+    }
+    const db = await getDb();
+    await db.open();
+    const oae = new OpenAiEmbeddings(db, openAi);
+
+    const dataFrameList: DataFrame[] = [];
+
+    let query = "";
+    let queryValues: unknown[] = [];
+    let dataFrame = new DataFrame();
+
+    if (summaryLevel === "raw only" || summaryLevel === "all") {
+      query =
+        "SELECT text_id, parsed_text, embedding FROM source_text_view WHERE source_id = ?";
+      queryValues = [projectId];
+      if (get().projectIdList.length > 0) {
+        query =
+          "SELECT text_id, parsed_text, embedding FROM source_text_view WHERE source_id in (?);";
+        queryValues = [get().projectIdList.toString()];
+      }
+      const result = await db.query(query, queryValues);
+      dataFrame = oae.resultsToDataframe(result.values || []);
+      dataFrameList.push(dataFrame);
+    }
+
+    if (summaryLevel === "all summaries" || summaryLevel === "all") {
+      query =
+        "SELECT text_id, parsed_text, embedding, origins FROM summary_text_view WHERE proj_id = ?;";
+      queryValues = [projectId];
+      if (get().projectIdList.length > 0) {
+        query =
+          "SELECT text_id, parsed_text, embedding, origins FROM summary_text_view WHERE proj_id in (?);";
+        queryValues = [get().projectIdList.toString()];
+      }
+      const result = await db.query(query, queryValues);
+      dataFrame = oae.resultsToDataframe(result.values || []);
+      dataFrameList.push(dataFrame);
+    }
+
+    if (summaryLevel === "all") {
+      dataFrame = danfoConcat({ dfList: dataFrameList, axis: 0 }) as DataFrame;
+    }
+
+    try {
+      const level = parseInt(summaryLevel);
+
+      if (!Number.isNaN(level)) {
+        console.log("summary level", level);
+        query =
+          "SELECT text_id, parsed_text, embedding, origins FROM summary_text_view WHERE level = ? and proj_id = ?;";
+        queryValues = [level, projectId];
+        if (get().projectIdList.length > 0) {
+          console.log(
+            `ContextExplorer.load_data_callback(): loading level ${level} for sources ${get().projectIdList.toString()}`
+          );
+          query =
+            "SELECT text_id, parsed_text, embedding, origins FROM summary_text_view WHERE level = ? and proj_id in (?);";
+          queryValues = [level, get().projectIdList.toString()];
+        }
+        console.log("query", query, queryValues);
+        const result = await db.query(query, queryValues);
+        console.log("result", result);
+        dataFrame = oae.resultsToDataframe(result.values || []);
+      }
+
+      // const result = oae.createContext(prompt);
+    } catch (error) {
+      console.warn("error", error);
+    } finally {
+      console.log("dv", dataFrame);
+      set({ dataFrame });
+      await db.close();
+    }
   },
   init: async () => {
+    const search = new URLSearchParams(window.location.search);
+    if (search.has("projectId")) {
+      set({
+        selectedProjectId: search.get("projectId"),
+      });
+      get().onProjectSelected(search.get("projectId") || "");
+    }
+
     if (get().initComplete) {
+      console.log("skip init");
       return;
     }
+
     const db = await getDb();
     await db.open();
 

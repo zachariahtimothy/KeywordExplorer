@@ -8,21 +8,23 @@ import {
   IonPage,
   IonRadio,
   IonRadioGroup,
-  IonSelect,
-  IonSelectOption,
   IonTextarea,
   IonTitle,
   IonToolbar,
 } from "@ionic/react";
+import type { JSX } from "@ionic/core/components";
 import "../Home.css";
 import { AppMainNavigation, AppModelSelect } from "../../modules/application";
 import { FormEventHandler, useEffect, useState } from "react";
 import { useOpenAiStore } from "../../modules/openAi";
 import {
+  AutomaticPromptType,
   explorerActions,
   useContextExplorerStore,
 } from "../../modules/contextExplorer/store";
 import { getDb } from "../../lib/db";
+import SelectField from "../../components/Fields/SelectField";
+import { useHistory } from "react-router";
 
 const ContextExplorerPage: React.FC = () => {
   const initContextExplorer = useContextExplorerStore((s) => s.init);
@@ -53,7 +55,8 @@ const ContextExplorerPage: React.FC = () => {
               onClick={async () => {
                 const db = await getDb();
                 await db.open();
-
+                const p = await db.getTableList();
+                console.log("p", p.values);
                 const result = await db.exportToJson("full");
                 console.log("sql export result", result.export);
                 await db.close();
@@ -81,6 +84,7 @@ const ContextExplorerPage: React.FC = () => {
               Clear DB
             </IonButton>
           </IonButtons>
+          <SourceFrame />
           <div style={{ marginTop: 50 }}>
             <DatabaseExplorer />
           </div>
@@ -92,49 +96,91 @@ const ContextExplorerPage: React.FC = () => {
 
 export default ContextExplorerPage;
 
+function SourceFrame() {
+  const source = useContextExplorerStore((s) => s.sourcesField);
+
+  return <IonTextarea value={source} rows={8} label={"Source"} name="source" />;
+}
 function ExplorerForm() {
+  const history = useHistory();
+
   const projects = useContextExplorerStore((s) => s.projectOptions);
   const summaryLevelOptions = useContextExplorerStore(
     (s) => s.summaryLevelOptions
   );
   const onProjectSelected = useContextExplorerStore((s) => s.onProjectSelected);
   const onFormSubmit = useContextExplorerStore((s) => s.onFormSubmit);
+  const promptText = useContextExplorerStore((s) => s.prompt);
+  const contextField = useContextExplorerStore((s) => s.contextField);
+  const onTextareaChange = useContextExplorerStore((s) => s.onTextareaChange);
+
+  const handleProjectSelected: JSX.IonSelect["onIonChange"] = (event) => {
+    const search = new URLSearchParams(history.location.search);
+    search.set("projectId", event.detail.value);
+    history.replace({
+      ...history.location,
+      search: search.toString(),
+    });
+    onProjectSelected(event.detail.value || "");
+  };
+
+  const handleSummarySelected: JSX.IonSelect["onIonChange"] = (event) => {
+    const search = new URLSearchParams(history.location.search);
+    search.set("summaryLevel", event.detail.value);
+    history.replace({
+      ...history.location,
+      search: search.toString(),
+    });
+  };
   return (
     <form onSubmit={onFormSubmit}>
-      <IonSelect label="Projects" onIonChange={onProjectSelected}>
-        {projects.map((project) => (
-          <IonSelectOption value={project.name} key={project.name}>
-            {project.name}
-          </IonSelectOption>
-        ))}
-      </IonSelect>
-      <IonSelect label="Summary Levels">
-        {summaryLevelOptions.map((item) => (
-          <IonSelectOption value={item} key={item}>
-            {item}
-          </IonSelectOption>
-        ))}
-      </IonSelect>
-      <IonTextarea name="context" label="Context" labelPlacement="stacked" />
-      <IonTextarea name="prompt" label="Prompt" labelPlacement="stacked" />
-      <IonRadioGroup name="action">
-        <IonLabel>Actions</IonLabel>
-        {explorerActions.map((action) => (
-          <IonRadio
-            key={action.value}
-            labelPlacement="end"
-            value={action.value}
-          >
-            {action.text}
-          </IonRadio>
-        ))}
-      </IonRadioGroup>
-      <fieldset>
-        <legend>Automatic</legend>
-        <IonButtons>
-          <IonButton>Question</IonButton>
-        </IonButtons>
-      </fieldset>
+      <SelectField
+        name="projectId"
+        label="Projects"
+        onIonChange={handleProjectSelected}
+        options={projects.map((x) => ({ id: x.name, label: x.name }))}
+      />
+
+      <SelectField
+        name="summaryLevel"
+        label="Summary Levels"
+        onIonChange={handleSummarySelected}
+        options={summaryLevelOptions.map((x) => ({ id: x, label: x }))}
+      />
+      <IonItem>
+        <IonTextarea
+          name="context"
+          label="Context"
+          labelPlacement="stacked"
+          value={contextField}
+          rows={5}
+          onIonInput={onTextareaChange}
+        />
+      </IonItem>
+      <IonItem>
+        <IonTextarea
+          name="prompt"
+          label="Prompt"
+          labelPlacement="stacked"
+          value={promptText}
+          rows={5}
+          onIonInput={onTextareaChange}
+        />
+      </IonItem>
+      <IonItem>
+        <IonLabel slot="start">Actions</IonLabel>
+        <IonRadioGroup name="action">
+          {explorerActions.map((action) => (
+            <IonRadio
+              key={action.value}
+              labelPlacement="start"
+              value={action.value}
+            >
+              {action.text}
+            </IonRadio>
+          ))}
+        </IonRadioGroup>
+      </IonItem>
       <IonButtons>
         <IonButton type="reset" color="dark">
           Clear
@@ -143,7 +189,25 @@ function ExplorerForm() {
           Submit
         </IonButton>
       </IonButtons>
+
+      <fieldset style={{ marginTop: 16 }}>
+        <legend>Automatic</legend>
+        <AutomaticButtons />
+      </fieldset>
     </form>
+  );
+}
+
+function AutomaticButtons() {
+  const onAutomaticButtonClick = useContextExplorerStore(
+    (s) => s.onAutomaticButtonClick
+  );
+  const clickHandler = (type: AutomaticPromptType) => () =>
+    onAutomaticButtonClick(type);
+  return (
+    <IonButtons>
+      <IonButton onClick={clickHandler("question")}>Question</IonButton>
+    </IonButtons>
   );
 }
 function ModelSelect() {
@@ -171,7 +235,7 @@ function DatabaseExplorer() {
     const query = formData.get("query") as string;
     const db = await getDb();
     await db.open();
-
+    // await db.execute("DROP VIEW source_text_view;");
     try {
       const r = await db.query(query);
       console.info("r", r);

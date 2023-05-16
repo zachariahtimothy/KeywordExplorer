@@ -1,8 +1,18 @@
 import { SQLiteDBConnection } from "@capacitor-community/sqlite";
 import { CreateEmbeddingResponse, OpenAIApi } from "openai";
-import { DataFrame } from "danfojs";
+import { DataFrame } from "danfojs/dist/danfojs-browser/src/index";
 import { OpenAiComs } from "./openAiComs";
 import { openAi } from "../openAi/stores/main";
+// import { OpenAI } from "langchain/llms/openai";
+// import { loadQAStuffChain, loadQAMapReduceChain } from "langchain/chains";
+// import { Document } from "langchain/document";
+import { OpenAIEmbeddings } from "langchain/embeddings/openai";
+
+// const llm = new OpenAI({
+//   openAIApiKey: import.meta.env.VITE_OPENAI_API_KEY,
+//   // formDataCtor: CustomFormData,
+// });
+// const chainA = loadQAStuffChain(llm);
 
 const DEFAULT_EMBEDDING_MODEL = "text-embedding-ada-002";
 
@@ -10,8 +20,21 @@ const worker = new ComlinkWorker<typeof import("./worker")>(
   new URL("./worker", import.meta.url)
 );
 
+const pyWorker = new ComlinkWorker<typeof import("./py.worker")>(
+  new URL("./py.worker.ts", import.meta.url)
+);
+const pyodideWorker = new ComlinkWorker<typeof import("./pyodide.worker")>(
+  new URL("./pyodide.worker.ts", import.meta.url)
+);
+
+const DEFAULT_TEXT_MODEL = "text-davinci-003";
 export default class OpenAiEmbeddings {
-  constructor(private db: SQLiteDBConnection, private openAi: OpenAIApi) {}
+  openAiComs: OpenAiComs;
+  dataFrame: DataFrame = new DataFrame();
+
+  constructor(private db: SQLiteDBConnection, private openAi: OpenAIApi) {
+    this.openAiComs = new OpenAiComs(this.openAi);
+  }
 
   private async _saveParsedText(
     sourceId: string,
@@ -23,6 +46,38 @@ export default class OpenAiEmbeddings {
       [sourceId, text, embedding],
       false
     );
+  }
+
+  /**
+   * Original: get_response
+   * @param contextString
+   * @param arg1
+   */
+  public async getResponse(
+    contextString: string,
+    {
+      maxTokens = 255,
+      model = DEFAULT_TEXT_MODEL,
+    }: { maxTokens?: number; model?: string }
+  ) {
+    return this.openAiComs.getPromptResultParams({
+      prompt: contextString,
+      max_tokens: maxTokens,
+      model,
+    });
+  }
+
+  /**
+   * Original: get_origins_text
+   * @param originsList
+   */
+  public async getOriginsText(originsList: number[]) {
+    const originsText = originsList.join(", ");
+    const result = await this.db.query(
+      "SELECT id, parsed_text FROM table_parsed_text WHERE id IN (?)",
+      [originsText]
+    );
+    return result.values?.map((x) => `${x.id}:${x.parsed_text}`) || [];
   }
   /**
    * Original: store_project_data
@@ -119,7 +174,6 @@ export default class OpenAiEmbeddings {
     let count = 0;
     const numberOfLines = results.values?.length || 0;
     let summary_count = 0;
-    const openAiComs = new OpenAiComs(this.openAi);
     const level = 1;
     while (count < numberOfLines) {
       const textToSummarize = this._buildTextToSummarize({
@@ -127,7 +181,7 @@ export default class OpenAiEmbeddings {
         rowCount: count,
         wordsToSummarize,
       });
-      const summary = await openAiComs.getPromptResultParams({
+      const summary = await this.openAiComs.getPromptResultParams({
         prompt: textToSummarize.query,
         model,
         temperature: 0,
@@ -176,6 +230,46 @@ export default class OpenAiEmbeddings {
       item.data.forEach((x) => accumulator.push(x));
       return accumulator;
     }, [] as CreateEmbeddingResponse["data"]);
+  }
+
+  /**
+   * Create a context for a question by finding the most similar context from the dataframe
+   * Original: create_context
+   * @param param0
+   * @returns
+   */
+  public async createContext(
+    question: string,
+    dataFrame: DataFrame,
+    maxLength = 400
+  ) {
+    const questionEmbeddings = this.openAiComs.getEmbedding(question);
+
+    const result = await pyWorker.executeScript(
+      pyodideWorker,
+      "testMe",
+      "distances_from_embeddings",
+      questionEmbeddings,
+      dataFrame.values,
+      "cosine"
+    );
+    console.log("result", result);
+  }
+
+  /**
+   * Original: results_to_df
+   */
+  public resultsToDataframe(resultList: any[]) {
+    const results = resultList.map((item) => {
+      // const embedding = item.embedding;
+      if (item.origins) {
+      } else {
+        item.origins = [item.text_id];
+      }
+      return item;
+    });
+    this.dataFrame = new DataFrame(results);
+    return this.dataFrame;
   }
 
   private _buildTextToSummarize({
