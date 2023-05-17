@@ -18,7 +18,7 @@ export async function executeScript(
   pyodideWorker: typeof import("./pyodide.worker"),
   filename: string,
   functionName: string,
-  ...scriptArguments: unknown[]
+  scriptArguments: unknown[]
 ) {
   await pyodideWorker.loadPyodideAndPackages();
   await pyodideWorker.loadScript(filename);

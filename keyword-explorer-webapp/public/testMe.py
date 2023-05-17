@@ -10,6 +10,8 @@ def distances_from_embeddings(
     embeddings: List[List[float]],
     distance_metric="cosine",
 ) -> List[List]:
+    print("args1 {}".format(query_embedding))
+    print("args2 {}".format(embeddings))
     """Return the distances between a query embedding and a list of embeddings."""
     distance_metrics = {
         "cosine": spatial.distance.cosine,

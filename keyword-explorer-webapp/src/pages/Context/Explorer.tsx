@@ -109,6 +109,7 @@ function ExplorerForm() {
     (s) => s.summaryLevelOptions
   );
   const onProjectSelected = useContextExplorerStore((s) => s.onProjectSelected);
+  const onSummarySelected = useContextExplorerStore((s) => s.onSummarySelected);
   const onFormSubmit = useContextExplorerStore((s) => s.onFormSubmit);
   const promptText = useContextExplorerStore((s) => s.prompt);
   const contextField = useContextExplorerStore((s) => s.contextField);
@@ -131,6 +132,7 @@ function ExplorerForm() {
       ...history.location,
       search: search.toString(),
     });
+    onSummarySelected(event.detail.value);
   };
   return (
     <form onSubmit={onFormSubmit}>

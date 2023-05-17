@@ -33,7 +33,7 @@ export async function loadScript(filename: string) {
 export function executeScript(
   name: string,
   functionName: string,
-  ...functionArguments: unknown[]
+  functionArguments: unknown[]
 ): unknown | undefined {
   console.info(
     "pyodide.worker",
@@ -42,7 +42,7 @@ export function executeScript(
   );
   const script = scriptMap.get(name);
   if (script) {
-    const result = script[functionName](functionArguments);
+    const result = script[functionName]([functionArguments[0]]);
     return result;
   } else {
     throw new Error(`Script ${name} not found in map`);

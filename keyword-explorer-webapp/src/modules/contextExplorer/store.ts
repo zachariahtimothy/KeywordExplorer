@@ -45,17 +45,95 @@ export const explorerActions = [
 
 const defaultSummaryLevelOptions = ["all", "raw only", "all summaries"];
 
+async function loadDataCallback(
+  projectId: number,
+  projectIdList: string[],
+  summaryLevel: string
+) {
+  const db = await getDb();
+  await db.open();
+  const oae = new OpenAiEmbeddings(db, openAi);
+
+  const dataFrameList: DataFrame[] = [];
+
+  let query = "";
+  let queryValues: unknown[] = [];
+  let dataFrame = new DataFrame();
+
+  if (summaryLevel === "raw only" || summaryLevel === "all") {
+    query =
+      "SELECT text_id, parsed_text, embedding FROM source_text_view WHERE source_id = ?";
+    queryValues = [projectId];
+    if (projectIdList.length > 0) {
+      query =
+        "SELECT text_id, parsed_text, embedding FROM source_text_view WHERE source_id in (?);";
+      queryValues = [projectIdList.toString()];
+    }
+    const result = await db.query(query, queryValues);
+    dataFrame = oae.resultsToDataframe(result.values || []);
+    dataFrameList.push(dataFrame);
+  }
+
+  if (summaryLevel === "all summaries" || summaryLevel === "all") {
+    query =
+      "SELECT text_id, parsed_text, embedding, origins FROM summary_text_view WHERE proj_id = ?;";
+    queryValues = [projectId];
+    if (projectIdList.length > 0) {
+      query =
+        "SELECT text_id, parsed_text, embedding, origins FROM summary_text_view WHERE proj_id in (?);";
+      queryValues = [projectIdList.toString()];
+    }
+    const result = await db.query(query, queryValues);
+    dataFrame = oae.resultsToDataframe(result.values || []);
+    dataFrameList.push(dataFrame);
+  }
+
+  if (summaryLevel === "all") {
+    dataFrame = danfoConcat({ dfList: dataFrameList, axis: 0 }) as DataFrame;
+  }
+
+  try {
+    const level = parseInt(summaryLevel);
+
+    if (!Number.isNaN(level)) {
+      console.log("summary level", level);
+      query =
+        "SELECT text_id, parsed_text, embedding, origins FROM summary_text_view WHERE level = ? and proj_id = ?;";
+      queryValues = [level, projectId];
+      if (projectIdList.length > 0) {
+        console.log(
+          `ContextExplorer.load_data_callback(): loading level ${level} for sources ${projectIdList.toString()}`
+        );
+        query =
+          "SELECT text_id, parsed_text, embedding, origins FROM summary_text_view WHERE level = ? and proj_id in (?);";
+        queryValues = [level, projectIdList.toString()];
+      }
+      console.log("query", query, queryValues);
+      const result = await db.query(query, queryValues);
+      console.log("result", result);
+      dataFrame = oae.resultsToDataframe(result.values || []);
+    }
+    return dataFrame;
+    // const result = oae.createContext(prompt);
+  } catch (error) {
+    console.warn("error", error);
+  } finally {
+    console.log("dv", dataFrame);
+    await db.close();
+  }
+}
 interface Project {
   name: string;
 }
 interface ContextExplorerSlice {
   projectOptions: Project[];
-  selectedProjectId: string | null;
+  selectedProjectId: number | null;
   projectIdList: string[];
   initComplete: boolean;
   summaryLevelOptions: string[];
   init: () => Promise<void>;
   onProjectSelected: (value: string) => void;
+  onSummarySelected: (value: string) => void;
   onFormSubmit: FormEventHandler<HTMLFormElement>;
   onAutomaticButtonClick: (type: AutomaticPromptType) => void;
   dataFrame: DataFrame | null;
@@ -208,6 +286,19 @@ export const createExplorerSlice: StateCreator<
       await db.close();
     }
   },
+  onSummarySelected: async (value) => {
+    const selectedProjectId = get().selectedProjectId;
+    if (!selectedProjectId) {
+      return;
+    }
+
+    const dataFrame = await loadDataCallback(
+      selectedProjectId,
+      get().projectIdList,
+      value
+    );
+    set({ dataFrame });
+  },
   onProjectSelected: async (value) => {
     const [textName, groupName] = value.split(":");
 
@@ -240,6 +331,15 @@ export const createExplorerSlice: StateCreator<
             summaryLevelOptions: newSummaryLevelOptions,
           });
         }
+        const search = new URLSearchParams(window.location.search);
+        if (search.has("summaryLevel")) {
+          const dataFrame = await loadDataCallback(
+            selectedProjectId,
+            get().projectIdList,
+            search.get("summaryLevel") as string
+          );
+          set({ dataFrame });
+        }
       }
     } finally {
       await db.close();
@@ -257,86 +357,28 @@ export const createExplorerSlice: StateCreator<
     if (!projectId) {
       throw new Error("Please select or create data first");
     }
+
+    const dataFrame = await loadDataCallback(
+      parseInt(projectId, 10),
+      get().projectIdList,
+      summaryLevel
+    );
+    set({ dataFrame });
+
     const db = await getDb();
-    await db.open();
     const oae = new OpenAiEmbeddings(db, openAi);
 
-    const dataFrameList: DataFrame[] = [];
-
-    let query = "";
-    let queryValues: unknown[] = [];
-    let dataFrame = new DataFrame();
-
-    if (summaryLevel === "raw only" || summaryLevel === "all") {
-      query =
-        "SELECT text_id, parsed_text, embedding FROM source_text_view WHERE source_id = ?";
-      queryValues = [projectId];
-      if (get().projectIdList.length > 0) {
-        query =
-          "SELECT text_id, parsed_text, embedding FROM source_text_view WHERE source_id in (?);";
-        queryValues = [get().projectIdList.toString()];
-      }
-      const result = await db.query(query, queryValues);
-      dataFrame = oae.resultsToDataframe(result.values || []);
-      dataFrameList.push(dataFrame);
-    }
-
-    if (summaryLevel === "all summaries" || summaryLevel === "all") {
-      query =
-        "SELECT text_id, parsed_text, embedding, origins FROM summary_text_view WHERE proj_id = ?;";
-      queryValues = [projectId];
-      if (get().projectIdList.length > 0) {
-        query =
-          "SELECT text_id, parsed_text, embedding, origins FROM summary_text_view WHERE proj_id in (?);";
-        queryValues = [get().projectIdList.toString()];
-      }
-      const result = await db.query(query, queryValues);
-      dataFrame = oae.resultsToDataframe(result.values || []);
-      dataFrameList.push(dataFrame);
-    }
-
-    if (summaryLevel === "all") {
-      dataFrame = danfoConcat({ dfList: dataFrameList, axis: 0 }) as DataFrame;
-    }
-
-    try {
-      const level = parseInt(summaryLevel);
-
-      if (!Number.isNaN(level)) {
-        console.log("summary level", level);
-        query =
-          "SELECT text_id, parsed_text, embedding, origins FROM summary_text_view WHERE level = ? and proj_id = ?;";
-        queryValues = [level, projectId];
-        if (get().projectIdList.length > 0) {
-          console.log(
-            `ContextExplorer.load_data_callback(): loading level ${level} for sources ${get().projectIdList.toString()}`
-          );
-          query =
-            "SELECT text_id, parsed_text, embedding, origins FROM summary_text_view WHERE level = ? and proj_id in (?);";
-          queryValues = [level, get().projectIdList.toString()];
-        }
-        console.log("query", query, queryValues);
-        const result = await db.query(query, queryValues);
-        console.log("result", result);
-        dataFrame = oae.resultsToDataframe(result.values || []);
-      }
-
-      // const result = oae.createContext(prompt);
-    } catch (error) {
-      console.warn("error", error);
-    } finally {
-      console.log("dv", dataFrame);
-      set({ dataFrame });
-      await db.close();
+    if (dataFrame) {
+      const p = await oae.createContext(prompt, dataFrame);
     }
   },
   init: async () => {
     const search = new URLSearchParams(window.location.search);
     if (search.has("projectId")) {
       set({
-        selectedProjectId: search.get("projectId"),
+        selectedProjectId: parseInt(search.get("projectId")!, 10),
       });
-      get().onProjectSelected(search.get("projectId") || "");
+      get().onProjectSelected(search.get("projectId")!);
     }
 
     if (get().initComplete) {

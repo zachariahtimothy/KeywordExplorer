@@ -7,12 +7,23 @@ import { openAi } from "../openAi/stores/main";
 // import { loadQAStuffChain, loadQAMapReduceChain } from "langchain/chains";
 // import { Document } from "langchain/document";
 import { OpenAIEmbeddings } from "langchain/embeddings/openai";
-
+import { Document } from "langchain/docstore";
+import { MemoryVectorStore } from "langchain/vectorstores/memory";
+import { loadQAStuffChain, loadQAMapReduceChain } from "langchain/chains";
+import { OpenAI } from "langchain/llms/openai";
 // const llm = new OpenAI({
 //   openAIApiKey: import.meta.env.VITE_OPENAI_API_KEY,
 //   // formDataCtor: CustomFormData,
 // });
 // const chainA = loadQAStuffChain(llm);
+
+const vectorStore = new MemoryVectorStore(
+  new OpenAIEmbeddings({ openAIApiKey: import.meta.env.VITE_OPENAI_API_KEY })
+);
+
+const chainA = loadQAStuffChain(
+  new OpenAI({ openAIApiKey: import.meta.env.VITE_OPENAI_API_KEY })
+);
 
 const DEFAULT_EMBEDDING_MODEL = "text-embedding-ada-002";
 
@@ -243,15 +254,29 @@ export default class OpenAiEmbeddings {
     dataFrame: DataFrame,
     maxLength = 400
   ) {
-    const questionEmbeddings = this.openAiComs.getEmbedding(question);
+    // const doc = new Document({ pageContent: question });
 
+    const questionEmbedding = await vectorStore.embeddings.embedQuery(question);
+    // const docs = dataFrame.values.map((x) => x[3]);
+
+    const docs = dataFrame.values.map((value) => {
+      return new Document({ pageContent: value[1] });
+    });
+    // await vectorStore.addDocuments(docs);
+    // // defaults to cosine
+    // const releventDocs = await vectorStore.similaritySearch(question);
+    // const distances = await chainA.call({
+    //   input_documents: releventDocs,
+    //   question,
+    // });
+
+    // const questionEmbeddings = this.openAiComs.getEmbedding(question);
+    console.log("dataFrame.values", dataFrame.values);
     const result = await pyWorker.executeScript(
       pyodideWorker,
       "testMe",
       "distances_from_embeddings",
-      questionEmbeddings,
-      dataFrame.values,
-      "cosine"
+      [questionEmbedding, []]
     );
     console.log("result", result);
   }
