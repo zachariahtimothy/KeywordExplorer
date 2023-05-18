@@ -11,6 +11,7 @@ import { Document } from "langchain/docstore";
 import { MemoryVectorStore } from "langchain/vectorstores/memory";
 import { loadQAStuffChain, loadQAMapReduceChain } from "langchain/chains";
 import { OpenAI } from "langchain/llms/openai";
+import { InMemoryFileStore } from "langchain/stores/file/in_memory";
 // const llm = new OpenAI({
 //   openAIApiKey: import.meta.env.VITE_OPENAI_API_KEY,
 //   // formDataCtor: CustomFormData,
@@ -54,7 +55,7 @@ export default class OpenAiEmbeddings {
   ) {
     return this.db.run(
       "INSERT INTO table_parsed_text (source, parsed_text, embedding) VALUES (?, ?, ?);",
-      [sourceId, text, embedding],
+      [sourceId, text, embedding.join(",")],
       false
     );
   }

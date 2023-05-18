@@ -9,10 +9,13 @@ import { DataFrame } from "danfojs/dist/danfojs-browser/src/index";
 import { getDb } from "../../lib/db";
 import OpenAiEmbeddings from "./openAiEmbeddings";
 import type { JSX } from "@ionic/core";
+import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
 
 const worker = new ComlinkWorker<typeof import("./worker")>(
   new URL("./worker", import.meta.url)
 );
+
+const textSplitter = new RecursiveCharacterTextSplitter();
 
 interface CorporaSlice {
   onFormSubmit: FormEventHandler<HTMLFormElement>;
@@ -37,7 +40,7 @@ export const createCorporaExplorerSlice: StateCreator<
     const file = formData.get("file") as File;
     const parseRegex = formData.get("parseRegex") as string;
     const fileLines = await worker.parseFileText(file, new RegExp(parseRegex));
-
+    console.log("flines", fileLines);
     const db = await getDb();
     await db.open();
 
@@ -68,7 +71,8 @@ export const createCorporaExplorerSlice: StateCreator<
         groupName,
         model: get().selectedModelId,
         maxTokens: 256,
-        maxLines: 25,
+        // maxLines: 25,
+        maxLines: 5,
       });
     } catch (error) {
       console.error("err", error);

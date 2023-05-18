@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS table_parsed_text (
   source INTEGER,
   summary_id INTEGER DEFAULT -1,
   parsed_text TEXT,
-  embedding BLOB,
+  embedding TEXT,
   moderation TEXT,
   sql_deleted BOOLEAN DEFAULT 0 CHECK (sql_deleted IN (0, 1)),
   last_modified INTEGER DEFAULT (strftime('%s', 'now'))

@@ -13,6 +13,17 @@ import { getDb } from "../../lib/db";
 import type { JSX } from "@ionic/core";
 import OpenAiEmbeddings from "./openAiEmbeddings";
 import { randomNumber, range } from "../../lib/utilities";
+import { InMemoryFileStore } from "langchain/stores/file/in_memory";
+import { ReadFileTool, WriteFileTool } from "langchain/tools";
+import { MemoryVectorStore } from "langchain/vectorstores/memory";
+import { OpenAIEmbeddings } from "langchain/embeddings/openai";
+import { AutoGPT } from "langchain/experimental/autogpt";
+import { ChatOpenAI } from "langchain/chat_models/openai";
+import { Document } from "langchain/document";
+import { PromptTemplate } from "langchain/prompts";
+import { LLMChain } from "langchain/chains";
+import { HumanChatMessage, SystemChatMessage } from "langchain/schema";
+import { ExplorerGPT } from "./explorergpt";
 
 // const pyWorker = new ComlinkWorker<typeof import("./py.worker")>(
 //   new URL("./py.worker.ts", import.meta.url)
@@ -26,6 +37,37 @@ import { randomNumber, range } from "../../lib/utilities";
 //   "testMe",
 //   "say",
 //   [1, 2]
+// );
+const inMemoryStore = new InMemoryFileStore();
+const vectorStore = new MemoryVectorStore(
+  new OpenAIEmbeddings({ openAIApiKey: import.meta.env.VITE_OPENAI_API_KEY })
+);
+const chatOpenAi = new ChatOpenAI({
+  openAIApiKey: import.meta.env.VITE_OPENAI_API_KEY,
+  temperature: 0,
+});
+
+const explorerGpt = ExplorerGPT.fromLLMAndTools(chatOpenAi, {
+  aiName: "Billy",
+  aiRole: "Assistant",
+  memory: vectorStore.asRetriever(),
+  maxIterations: 1,
+  automaticPrompt: PromptTemplate.fromTemplate(
+    "Create a {promptType} that uses the following context\n\nContext{context}"
+  ),
+});
+
+// const autogpt = AutoGPT.fromLLMAndTools(
+//   new ChatOpenAI({
+//     openAIApiKey: import.meta.env.VITE_OPENAI_API_KEY,
+//     temperature: 0,
+//   }),
+//   tools,
+//   {
+//     memory: vectorStore.asRetriever(),
+//     aiName: "Tom",
+//     aiRole: "Assistant",
+//   }
 // );
 
 export type AutomaticPromptType =
@@ -70,6 +112,32 @@ async function loadDataCallback(
       queryValues = [projectIdList.toString()];
     }
     const result = await db.query(query, queryValues);
+
+    if (result.values) {
+      const vectors: number[][] = [];
+      const docs: Document[] = [];
+      for (const element of result.values) {
+        const value = element;
+        await inMemoryStore.writeFile(value.text_id, value.parsed_text);
+        const embedding = (value.embedding as string)
+          .split(",")
+          .map((x) => parseFloat(x));
+        vectors.push(embedding);
+
+        const doc = new Document({
+          pageContent: value.parsed_text,
+          metadata: {
+            text_id: value.text_id,
+          },
+        });
+
+        docs.push(doc);
+
+        // vectorStore.addVectors(value.embeddings as number[][], [doc])
+      }
+      await vectorStore.addVectors(vectors, docs);
+    }
+
     dataFrame = oae.resultsToDataframe(result.values || []);
     dataFrameList.push(dataFrame);
   }
@@ -218,32 +286,33 @@ export const createExplorerSlice: StateCreator<
       0
     )}`;
     const originsList: number[] = [];
+    const originColumnIndex = df.columns.findIndex((x) => x === "origins");
+    const parsedTextColumnIndex = df.columns.findIndex(
+      (x) => x === "parsed_text"
+    );
     for (const i of range(firstLine + 1, firstLine + numberOfLines, 1)) {
       if (df.values?.[i]) {
         try {
-          const series = df.iloc({ rows: [i] });
-          const o = series.column("origins");
-          try {
-            console.log("series", series, series.values, o);
-          } catch (error) {
-            console.error("error", error);
-            df.iloc({ rows: [i] });
-          }
+          const series = df.values[i] as any[];
+          console.log("o", series);
+          // const o = series.column("origins");
 
-          const parsedText = series.at("", "parsed_text");
+          // const parsedText = series.at("", "parsed_text");
+          const parsedText = series[parsedTextColumnIndex];
           if (parsedText) {
             contextString += `\n\n###\n\n${parsedText}`;
           }
 
           // const origins = series.at("", "origins");
-          const origins = series.column("origins");
+          // const origins = series.column("origins");
+          const origins = series[originColumnIndex];
           console.log("origins loop", origins);
-          if (origins.values) {
-            origins.values.forEach((x) => originsList.push(x as number));
+          if (origins) {
+            origins.forEach((x) => originsList.push(x as number));
           }
           console.log("i", i, parsedText);
         } catch (error) {
-          console.log("no series");
+          console.log("no series", df.values, i, error);
         }
       }
     }
@@ -260,11 +329,15 @@ export const createExplorerSlice: StateCreator<
       set({
         sourcesField: origins.join("\n\n"),
       });
-      console.log("origins", origins);
-      const question = await oae.getResponse(contextString, {
-        maxTokens: 512,
-        model: get().selectedModelId,
+
+      const question = await explorerGpt.runAutomatic({
+        promptType,
+        context: s.values.at(0),
       });
+      // const question = await oae.getResponse(contextString, {
+      //   maxTokens: 512,
+      //   model: get().selectedModelId,
+      // });
       console.log("question", question);
       if (type === "question") {
         set({

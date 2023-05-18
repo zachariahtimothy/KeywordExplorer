@@ -1,3 +1,10 @@
+import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
+
+const textSplitter = new RecursiveCharacterTextSplitter({
+  chunkSize: 500,
+  chunkOverlap: 50,
+});
+
 function splitTextByPunctuation(
   text: string,
   punctuationRegex = /([.?()!])/
@@ -24,8 +31,9 @@ function splitTextByPunctuation(
 export const parseFileText = (file: File, regex: RegExp) => {
   const reader = new FileReaderSync();
   const contents = reader.readAsText(file);
-  const noLineBreaks = contents.replaceAll(/[\n\r]/g, " ");
-  return splitTextByPunctuation(noLineBreaks, regex);
+  return textSplitter.splitText(contents);
+  // const noLineBreaks = contents.replaceAll(/[\n\r]/g, " ");
+  // return splitTextByPunctuation(noLineBreaks, regex);
 };
 
 export const chunkArray = <Type>(arr: Type[], size: number): Type[][] => {
