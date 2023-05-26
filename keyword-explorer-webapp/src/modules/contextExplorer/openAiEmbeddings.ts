@@ -1,4 +1,3 @@
-import { SQLiteDBConnection } from "@capacitor-community/sqlite";
 import { CreateEmbeddingResponse, OpenAIApi } from "openai";
 import { DataFrame } from "danfojs/dist/danfojs-browser/src/index";
 import { OpenAiComs } from "./openAiComs";
@@ -11,7 +10,7 @@ import { Document } from "langchain/docstore";
 import { MemoryVectorStore } from "langchain/vectorstores/memory";
 import { loadQAStuffChain, loadQAMapReduceChain } from "langchain/chains";
 import { OpenAI } from "langchain/llms/openai";
-import { InMemoryFileStore } from "langchain/stores/file/in_memory";
+import { dexieDb } from "../../lib/dexieDb";
 // const llm = new OpenAI({
 //   openAIApiKey: import.meta.env.VITE_OPENAI_API_KEY,
 //   // formDataCtor: CustomFormData,
@@ -44,20 +43,25 @@ export default class OpenAiEmbeddings {
   openAiComs: OpenAiComs;
   dataFrame: DataFrame = new DataFrame();
 
-  constructor(private db: SQLiteDBConnection, private openAi: OpenAIApi) {
+  constructor(private openAi: OpenAIApi) {
     this.openAiComs = new OpenAiComs(this.openAi);
   }
 
   private async _saveParsedText(
-    sourceId: string,
+    sourceId: number,
     text: string,
     embedding: number[]
-  ) {
-    return this.db.run(
-      "INSERT INTO table_parsed_text (source, parsed_text, embedding) VALUES (?, ?, ?);",
-      [sourceId, text, embedding.join(",")],
-      false
-    );
+  ): Promise<number> {
+    return dexieDb.parsedText.add({
+      source: sourceId,
+      parsed_text: text,
+      embedding: Float64Array.from(embedding),
+    });
+    // return this.db.run(
+    //   "INSERT INTO table_parsed_text (source, parsed_text, embedding) VALUES (?, ?, ?);",
+    //   [sourceId, text, embedding.join(",")],
+    //   false
+    // );
   }
 
   /**
@@ -85,11 +89,17 @@ export default class OpenAiEmbeddings {
    */
   public async getOriginsText(originsList: number[]) {
     const originsText = originsList.join(", ");
-    const result = await this.db.query(
-      "SELECT id, parsed_text FROM table_parsed_text WHERE id IN (?)",
-      [originsText]
-    );
-    return result.values?.map((x) => `${x.id}:${x.parsed_text}`) || [];
+    const result = await dexieDb.parsedText
+      .where({
+        id: originsText,
+      })
+      .toArray();
+    return result.map((x) => `${x.id}:${x.parsed_text}`);
+    // const result = await this.db.query(
+    //   "SELECT id, parsed_text FROM table_parsed_text WHERE id IN (?)",
+    //   [originsText]
+    // );
+    // return result.values?.map((x) => `${x.id}:${x.parsed_text}`) || [];
   }
   /**
    * Original: store_project_data
@@ -104,25 +114,43 @@ export default class OpenAiEmbeddings {
     groupName: string;
     dataFrame: DataFrame;
   }) {
-    const sourceQueryResults = await this.db.query(
-      `SELECT * FROM table_source WHERE text_name = ? AND group_name = ?;`,
-      [targetName, groupName]
-    );
-
-    let sourceId = sourceQueryResults.values?.[0]?.id;
-    if (!sourceQueryResults.values?.length) {
+    const r = await dexieDb.source.get({
+      text_name: targetName,
+      group_name: groupName,
+    });
+    console.log("r", r);
+    let sourceId = r?.id;
+    if (!r) {
       console.info(
         `No db entry for '${targetName}' '${groupName}': creating entry`
       );
-      const insertResults = await this.db.run(
-        "INSERT INTO table_source (text_name, group_name) VALUES (?, ?);",
-        [targetName, groupName],
-        false
-      );
-
+      const insertResults = await dexieDb.source.add({
+        text_name: targetName,
+        group_name: groupName,
+      });
       console.log("insertResults", insertResults);
-      sourceId = insertResults.changes?.lastId;
+      sourceId = insertResults as number;
     }
+
+    // const sourceQueryResults = await this.db.query(
+    //   `SELECT * FROM table_source WHERE text_name = ? AND group_name = ?;`,
+    //   [targetName, groupName]
+    // );
+
+    // let sourceId = sourceQueryResults.values?.[0]?.id;
+    // if (!sourceQueryResults.values?.length) {
+    //   console.info(
+    //     `No db entry for '${targetName}' '${groupName}': creating entry`
+    //   );
+    //   const insertResults = await this.db.run(
+    //     "INSERT INTO table_source (text_name, group_name) VALUES (?, ?);",
+    //     [targetName, groupName],
+    //     false
+    //   );
+
+    //   console.log("insertResults", insertResults);
+    //   sourceId = insertResults.changes?.lastId;
+    // }
     if (!sourceId) {
       throw new Error(`No source id`);
     }
@@ -130,7 +158,7 @@ export default class OpenAiEmbeddings {
 
     const promises = dataFrame.values.map((row) => {
       const castRow = row as [string, number[]];
-      return this._saveParsedText(sourceId, castRow[0], castRow[1]);
+      return this._saveParsedText(sourceId!, castRow[0], castRow[1]);
     });
     await Promise.all(promises);
   }
@@ -158,41 +186,50 @@ export default class OpenAiEmbeddings {
       "openAIEmbeddings.summaryizeRawText()",
       `saving to ${targetName} ${groupName}`
     );
-    let results = await this.db.query(
-      "SELECT * FROM table_source WHERE text_name = ? AND group_name = ?",
-      [targetName, groupName]
-    );
-    if (!results.values?.length) {
+    const sourceResult = await dexieDb.source.get({
+      text_name: targetName,
+      group_name: groupName,
+    });
+    // let results = await this.db.query(
+    //   "SELECT * FROM table_source WHERE text_name = ? AND group_name = ?",
+    //   [targetName, groupName]
+    // );
+    if (!sourceResult) {
       console.warn(
         `openAIEmbeddings.summaryizeRawText() Unable to find project ${targetName} ${groupName}`
       );
     }
-    const projectId = results.values?.[0]?.id;
+    const projectId = sourceResult?.id;
 
-    const variables = [projectId];
-    if (maxLines) {
-      variables.push(maxLines);
-    }
+    // const variables = [projectId];
+    // if (maxLines) {
+    //   variables.push(maxLines);
+    // }
 
     // then take those summaries and recursively summarize until the target line count is reached
-    results = await this.db.query(
-      `SELECT text_id, parsed_text FROM source_text_view WHERE source_id = ? AND summary_id = -1${
-        maxLines ? " LIMIT ?;" : ";"
-      }`,
-      variables
+    const sourceTextResults = await dexieDb.getSourceTextView(
+      sourceResult?.id,
+      maxLines
     );
-    console.log("results", results.values?.length);
+    // results = await this.db.query(
+    //   `SELECT text_id, parsed_text FROM source_text_view WHERE source_id = ? AND summary_id = -1${
+    //     maxLines ? " LIMIT ?;" : ";"
+    //   }`,
+    //   variables
+    // );
+    console.log("results", sourceTextResults.length);
 
     let count = 0;
-    const numberOfLines = results.values?.length || 0;
+    const numberOfLines = sourceTextResults?.length || 0;
     let summary_count = 0;
     const level = 1;
     while (count < numberOfLines) {
       const textToSummarize = this._buildTextToSummarize({
-        results: results.values || [],
+        results: sourceTextResults || [],
         rowCount: count,
         wordsToSummarize,
       });
+      console.log("textToSummarize", textToSummarize);
       const summary = await this.openAiComs.getPromptResultParams({
         prompt: textToSummarize.query,
         model,
@@ -201,21 +238,33 @@ export default class OpenAiEmbeddings {
         frequency_penalty: 0,
         max_tokens: maxTokens,
       });
-      const result = await this.db.run(
-        "INSERT INTO table_summary_text (source, level, summary_text, origins) VALUES (?, ?, ?, ?)",
-        [projectId, level, summary, textToSummarize.origins],
-        false
-      );
-      const rowId = result.changes?.lastId;
+
+      const rowId = await dexieDb.summaryText.add({
+        source: projectId,
+        level,
+        summary_text: summary,
+        origins: textToSummarize.origins,
+      });
+      // const result = await this.db.run(
+      //   "INSERT INTO table_summary_text (source, level, summary_text, origins) VALUES (?, ?, ?, ?)",
+      //   [projectId, level, summary, textToSummarize.origins],
+      //   false
+      // );
+      // const rowId = result.changes?.lastId;
       summary_count += 1;
       console.log("openAIEmbeddings.summaryizeRawText()", { rowId, summary });
       const rowPromises = textToSummarize.rowList.map((row) => {
-        return this.db.run(
-          "UPDATE table_parsed_text set summary_id = ? WHERE id = ?",
-          [rowId, row],
-          false
-        );
+        return dexieDb.parsedText.update(row, {
+          summary_id: rowId,
+        });
       });
+      // const rowPromises = textToSummarize.rowList.map((row) => {
+      //   return this.db.run(
+      //     "UPDATE table_parsed_text set summary_id = ? WHERE id = ?",
+      //     [rowId, row],
+      //     false
+      //   );
+      // });
       await Promise.all(rowPromises);
       count = textToSummarize.count;
       // run the query and store the result. Update the parsed text table with the summary id
@@ -305,14 +354,14 @@ export default class OpenAiEmbeddings {
     overlap = 2,
     wordLength = 100,
   }: {
-    results: any[];
+    results: Awaited<ReturnType<typeof dexieDb.getSourceTextView>>;
     rowCount: number;
     wordsToSummarize: number;
     overlap?: number;
     wordLength?: number;
   }): TextSummary {
     let context = "";
-    let origin_list: string[] = [];
+    let origin_list: number[] = [];
     let query = "Provide a summary of the following:\n";
     let wordCount = 0;
     const rowList: number[] = [];
@@ -324,15 +373,15 @@ export default class OpenAiEmbeddings {
     // while word_count < words_to_summarize and row_count < num_lines:
     while (wordCount < wordsToSummarize && rowCount < results.length) {
       const result = results[rowCount];
+
       const { parsed_text: text } = result;
       wordCount += context.split(" ").length;
-      rowList.push(result["text_id"]);
+      rowList.push(result.id!);
 
       if ("origins" in result) {
-        const l: string[] = JSON.parse(result["origins"]);
-        origin_list = origin_list.concat(l);
+        origin_list = origin_list.concat(result.origins as number);
       } else {
-        origin_list.push(result["text_id"].toString());
+        origin_list.push(result.id!);
       }
 
       context = context.concat(` ${text}.`);
@@ -359,5 +408,5 @@ interface TextSummary {
   query: string;
   count: number;
   rowList: number[];
-  origins: string[];
+  origins: number[];
 }

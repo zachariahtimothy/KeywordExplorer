@@ -28,7 +28,7 @@ function splitTextByPunctuation(
   return result;
 }
 
-export const parseFileText = (file: File, regex: RegExp) => {
+export const parseFileText = (file: File) => {
   const reader = new FileReaderSync();
   const contents = reader.readAsText(file);
   return textSplitter.splitText(contents);

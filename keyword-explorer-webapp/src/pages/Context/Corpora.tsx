@@ -12,10 +12,14 @@ import {
   IonToolbar,
 } from "@ionic/react";
 import { AppMainNavigation } from "../../modules/application";
-import { useState } from "react";
+import { FormEventHandler, useEffect, useState } from "react";
 import { useCorporaStore } from "../../modules/contextExplorer/corporaStore";
 
 export default function ContextCorporaPage() {
+  const init = useCorporaStore((s) => s.init);
+  useEffect(() => {
+    init();
+  }, []);
   return (
     <IonPage>
       <IonHeader>
@@ -40,12 +44,23 @@ export default function ContextCorporaPage() {
 
 const numberOfSummaryLevels = 4;
 function CorporaForm() {
-  const onFormSubmit = useCorporaStore((s) => s.onFormSubmit);
+  const saveDataset = useCorporaStore((s) => s.saveDataset);
   const loading = useCorporaStore((s) => s.loading);
   const [summaryLevel, setSummaryLevel] = useState(1);
-
+  const handleSubmit: FormEventHandler<HTMLFormElement> = (event): void => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    saveDataset({
+      targetName: formData.get("targetName") as string,
+      groupName: formData.get("targetGroup") as string,
+      file: formData.get("file") as File,
+      summaryLevel: parseInt(formData.get("summaryLevel") as string),
+    }).catch((error) => {
+      console.error("Error saving dataset", error);
+    });
+  };
   return (
-    <form onSubmit={onFormSubmit}>
+    <form onSubmit={handleSubmit}>
       <fieldset>
         <legend>Target</legend>
         <IonItem>
@@ -86,7 +101,7 @@ function CorporaForm() {
       </fieldset>
       <fieldset>
         <legend>File</legend>
-        <IonItem>
+        {/* <IonItem>
           <IonInput
             name="parseRegex"
             label="Parse Regex"
@@ -94,7 +109,7 @@ function CorporaForm() {
             // value="[.!?()]"
             value="([.?()!])"
           />
-        </IonItem>
+        </IonItem> */}
         <IonItem>
           <input name="file" type="file" accept="text/*" required />
         </IonItem>

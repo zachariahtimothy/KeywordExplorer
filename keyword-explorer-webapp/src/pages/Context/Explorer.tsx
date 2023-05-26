@@ -8,6 +8,7 @@ import {
   IonPage,
   IonRadio,
   IonRadioGroup,
+  IonText,
   IonTextarea,
   IonTitle,
   IonToolbar,
@@ -84,10 +85,11 @@ const ContextExplorerPage: React.FC = () => {
               Clear DB
             </IonButton>
           </IonButtons>
+          <Responses />
           <SourceFrame />
-          <div style={{ marginTop: 50 }}>
+          {/* <div style={{ marginTop: 50 }}>
             <DatabaseExplorer />
-          </div>
+          </div> */}
         </div>
       </IonContent>
     </IonPage>
@@ -96,6 +98,18 @@ const ContextExplorerPage: React.FC = () => {
 
 export default ContextExplorerPage;
 
+function Responses() {
+  const responses = useContextExplorerStore((s) => s.chatHistory);
+  return (
+    <>
+      <IonText>Responses:</IonText>
+      {responses.map((x, i) => (
+        <div key={i}>{x.text}</div>
+      ))}
+    </>
+  );
+}
+
 function SourceFrame() {
   const source = useContextExplorerStore((s) => s.sourcesField);
 
@@ -103,7 +117,7 @@ function SourceFrame() {
 }
 function ExplorerForm() {
   const history = useHistory();
-
+  const search = new URLSearchParams(history.location.search);
   const projects = useContextExplorerStore((s) => s.projectOptions);
   const summaryLevelOptions = useContextExplorerStore(
     (s) => s.summaryLevelOptions
@@ -111,12 +125,12 @@ function ExplorerForm() {
   const onProjectSelected = useContextExplorerStore((s) => s.onProjectSelected);
   const onSummarySelected = useContextExplorerStore((s) => s.onSummarySelected);
   const onFormSubmit = useContextExplorerStore((s) => s.onFormSubmit);
+  const resetForm = useContextExplorerStore((s) => s.resetForm);
   const promptText = useContextExplorerStore((s) => s.prompt);
   const contextField = useContextExplorerStore((s) => s.contextField);
   const onTextareaChange = useContextExplorerStore((s) => s.onTextareaChange);
 
   const handleProjectSelected: JSX.IonSelect["onIonChange"] = (event) => {
-    const search = new URLSearchParams(history.location.search);
     search.set("projectId", event.detail.value);
     history.replace({
       ...history.location,
@@ -126,7 +140,6 @@ function ExplorerForm() {
   };
 
   const handleSummarySelected: JSX.IonSelect["onIonChange"] = (event) => {
-    const search = new URLSearchParams(history.location.search);
     search.set("summaryLevel", event.detail.value);
     history.replace({
       ...history.location,
@@ -134,13 +147,19 @@ function ExplorerForm() {
     });
     onSummarySelected(event.detail.value);
   };
+
+  const handleFormReset: FormEventHandler<HTMLFormElement> = () => {
+    resetForm();
+  };
+
   return (
-    <form onSubmit={onFormSubmit}>
+    <form onSubmit={onFormSubmit} onReset={handleFormReset}>
       <SelectField
         name="projectId"
         label="Projects"
         onIonChange={handleProjectSelected}
         options={projects.map((x) => ({ id: x.name, label: x.name }))}
+        value={projects.find((x) => x.name === search.get("projectId"))}
       />
 
       <SelectField
@@ -148,6 +167,9 @@ function ExplorerForm() {
         label="Summary Levels"
         onIonChange={handleSummarySelected}
         options={summaryLevelOptions.map((x) => ({ id: x, label: x }))}
+        value={summaryLevelOptions.find(
+          (x) => x === search.get("summaryLevel")
+        )}
       />
       <IonItem>
         <IonTextarea

@@ -64,6 +64,10 @@ export const getModelContextSize = (modelName: string): number => {
   }
 };
 
+const questionPrompt = PromptTemplate.fromTemplate(
+  "Answer the question based on the context below.\n\nContext: {context}\n\n---\n\nQuestion: {question}\nAnswer:"
+);
+
 export interface ExplorerGPTInput {
   aiName: string;
   aiRole: string;
@@ -153,7 +157,9 @@ export class ExplorerGPT {
     });
   }
 
-  async runAutomatic(chainValues: ChainValues): Promise<string | undefined> {
+  async runAutomatic(
+    chainValues: ChainValues
+  ): Promise<{ assistantReply: string; context: string }> {
     const user_input = await this.automaticPrompt.format(chainValues);
     const { text: assistantReply } = await this.chain.call({
       user_input,
@@ -161,15 +167,28 @@ export class ExplorerGPT {
       memory: this.memory,
       messages: this.fullMessageHistory,
     });
-    this.fullMessageHistory.push(new HumanChatMessage(user_input));
-    this.fullMessageHistory.push(new AIChatMessage(assistantReply));
+    // this.fullMessageHistory.push(new HumanChatMessage(user_input));
+    // this.fullMessageHistory.push(new AIChatMessage(assistantReply));
 
     const memoryToAdd = `Assistant Reply: ${assistantReply}\nResult: ${assistantReply} `;
     const documents = await this.textSplitter.createDocuments([memoryToAdd]);
     await this.memory.addDocuments(documents);
-    this.fullMessageHistory.push(new SystemChatMessage(assistantReply));
-    return assistantReply;
+    // this.fullMessageHistory.push(new SystemChatMessage(assistantReply));
+    return {
+      assistantReply,
+      context: user_input,
+    };
   }
+
+  async askQuestion(question: string) {
+    const releventDocs = await this.memory.getRelevantDocuments(question);
+    const context = releventDocs.map((x) => x.pageContent).join("\n\n###\n\n");
+    const userInput = await questionPrompt.format({ question, context });
+    const result = await this.run(userInput);
+    console.log("userInput", result);
+    return result;
+  }
+
   async run(user_input: string): Promise<string | undefined> {
     // const user_input =
     //   "Determine which next command to use, and respond using the format specified above:";
@@ -193,17 +212,18 @@ export class ExplorerGPT {
       if (action.name === FINISH_NAME) {
         return action.text;
       }
-      let result = action.text;
+      const result = action.text;
 
-      if (action.name === "ERROR") {
-        result = `Error: ${action.text}. `;
-      } else {
-        result = `Unknown command '${action.name}'. Please refer to the 'COMMANDS' list for available commands and only respond in the specified JSON format.`;
-      }
+      // if (action.name === "ERROR") {
+      //   result = `Error: ${action.text}. `;
+      // } else {
+      //   result = `Unknown command '${action.name}'. Please refer to the 'COMMANDS' list for available commands and only respond in the specified JSON format.`;
+      // }
       const memoryToAdd = `Assistant Reply: ${assistantReply}\nResult: ${result} `;
       const documents = await this.textSplitter.createDocuments([memoryToAdd]);
       await this.memory.addDocuments(documents);
-      this.fullMessageHistory.push(new SystemChatMessage(result));
+      // this.fullMessageHistory.push(new SystemChatMessage(result));
+      return result;
     }
     return undefined;
   }
