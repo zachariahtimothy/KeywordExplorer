@@ -16,7 +16,7 @@ import {
 import type { JSX } from "@ionic/core/components";
 import "../Home.css";
 import { AppMainNavigation, AppModelSelect } from "../../modules/application";
-import { FormEventHandler, useEffect, useState } from "react";
+import { FormEventHandler, useEffect } from "react";
 import { useOpenAiStore } from "../../modules/openAi";
 import {
   AutomaticPromptType,
@@ -154,30 +154,33 @@ function ExplorerForm() {
 
   return (
     <form onSubmit={onFormSubmit} onReset={handleFormReset}>
-      <SelectField
-        name="projectId"
-        label="Projects"
-        onIonChange={handleProjectSelected}
-        options={projects.map((x) => ({ id: x.name, label: x.name }))}
-        value={projects.find((x) => x.name === search.get("projectId"))}
-      />
-
-      <SelectField
-        name="summaryLevel"
-        label="Summary Levels"
-        onIonChange={handleSummarySelected}
-        options={summaryLevelOptions.map((x) => ({ id: x, label: x }))}
-        value={summaryLevelOptions.find(
-          (x) => x === search.get("summaryLevel")
-        )}
-      />
+      <IonItem>
+        <SelectField
+          name="projectId"
+          label="Projects"
+          onIonChange={handleProjectSelected}
+          options={projects.map((x) => ({ id: x.name, label: x.name }))}
+          value={projects.find((x) => x.name === search.get("projectId"))}
+        />
+      </IonItem>
+      <IonItem>
+        <SelectField
+          name="summaryLevel"
+          label="Summary Levels"
+          onIonChange={handleSummarySelected}
+          options={summaryLevelOptions.map((x) => ({ id: x, label: x }))}
+          value={summaryLevelOptions.find(
+            (x) => x === search.get("summaryLevel")
+          )}
+        />
+      </IonItem>
       <IonItem>
         <IonTextarea
           name="context"
           label="Context"
           labelPlacement="stacked"
           value={contextField}
-          rows={5}
+          rows={8}
           onIonInput={onTextareaChange}
         />
       </IonItem>
@@ -187,7 +190,7 @@ function ExplorerForm() {
           label="Prompt"
           labelPlacement="stacked"
           value={promptText}
-          rows={5}
+          rows={6}
           onIonInput={onTextareaChange}
         />
       </IonItem>
@@ -205,11 +208,11 @@ function ExplorerForm() {
           ))}
         </IonRadioGroup>
       </IonItem>
-      <IonButtons>
+      <IonButtons className="ion-margin-top">
         <IonButton type="reset" color="dark">
           Clear
         </IonButton>
-        <IonButton type="submit" color="primary" fill="outline">
+        <IonButton type="submit" color="primary" fill="outline" expand="block">
           Submit
         </IonButton>
       </IonButtons>
@@ -226,11 +229,37 @@ function AutomaticButtons() {
   const onAutomaticButtonClick = useContextExplorerStore(
     (s) => s.onAutomaticButtonClick
   );
+  const contextReady = useContextExplorerStore((s) => s.contextReady);
   const clickHandler = (type: AutomaticPromptType) => () =>
     onAutomaticButtonClick(type);
+
+  const buttonsDisabled = !contextReady();
   return (
     <IonButtons>
-      <IonButton onClick={clickHandler("question")}>Question</IonButton>
+      <IonButton onClick={clickHandler("question")} disabled={buttonsDisabled}>
+        Question
+      </IonButton>
+      <IonButton onClick={clickHandler("tweet")} disabled={buttonsDisabled}>
+        Tweet
+      </IonButton>
+      <IonButton
+        onClick={clickHandler("science tweet")}
+        disabled={buttonsDisabled}
+      >
+        Science Tweet
+      </IonButton>
+      <IonButton onClick={clickHandler("thread")} disabled={buttonsDisabled}>
+        Thread
+      </IonButton>
+      <IonButton onClick={clickHandler("factoid")} disabled={buttonsDisabled}>
+        Factoid
+      </IonButton>
+      <IonButton
+        onClick={clickHandler("press release")}
+        disabled={buttonsDisabled}
+      >
+        Press Release
+      </IonButton>
     </IonButtons>
   );
 }
@@ -246,43 +275,5 @@ function ModelSelect() {
       </IonItem>
       <AppModelSelect />
     </>
-  );
-}
-
-function DatabaseExplorer() {
-  const [results, setResults] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const handleSubmit: FormEventHandler<HTMLFormElement> = async (event) => {
-    event.preventDefault();
-    setLoading(true);
-    const formData = new FormData(event.currentTarget);
-    const query = formData.get("query") as string;
-    const db = await getDb();
-    await db.open();
-    // await db.execute("DROP VIEW source_text_view;");
-    try {
-      const r = await db.query(query);
-      console.info("r", r);
-
-      setResults(r.values || []);
-    } catch (error) {
-      console.error("Error running query", error);
-    } finally {
-      await db.close();
-      setLoading(false);
-    }
-  };
-  return (
-    <form onSubmit={handleSubmit}>
-      <IonTextarea name="query" label="Query" labelPlacement="stacked" />
-      <IonButton type="submit" disabled={loading}>
-        Execute
-      </IonButton>
-      <div>
-        {results.map((x, i) => (
-          <p key={`${i}`}>{JSON.stringify(x, null, 2)}</p>
-        ))}
-      </div>
-    </form>
   );
 }

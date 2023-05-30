@@ -5,7 +5,6 @@ import {
   createCompletionSlice,
 } from "../openAi/stores/completion";
 import { FormEventHandler } from "react";
-import { DataFrame } from "danfojs/dist/danfojs-browser/src/index";
 import type { JSX } from "@ionic/core";
 import { randomNumber } from "../../lib/utilities";
 import { ChatOpenAI } from "langchain/chat_models/openai";
@@ -187,13 +186,13 @@ interface ContextExplorerSlice {
   onFormSubmit: FormEventHandler<HTMLFormElement>;
   resetForm: () => void;
   onAutomaticButtonClick: (type: AutomaticPromptType) => void;
-  dataFrame: DataFrame | null;
   prompt: string;
   contextField: string;
   sourcesField: string;
   responseField: string;
   onTextareaChange: NonNullable<JSX.IonTextarea["onIonInput"]>;
   chatHistory: typeof explorerGpt.fullMessageHistory;
+  contextReady: () => boolean;
 }
 
 export const createExplorerSlice: StateCreator<
@@ -203,10 +202,13 @@ export const createExplorerSlice: StateCreator<
   ContextExplorerSlice
 > = (set, get) => ({
   initError: null,
+  contextReady: () => {
+    const searchParams = new URLSearchParams(window.location.search);
+    return searchParams.has("projectId") && searchParams.has("summaryLevel");
+  },
   projectOptions: [],
   selectedProjectId: null,
   projectIdList: [],
-  dataFrame: null,
   prompt: "",
   contextField: "",
   sourcesField: "",
@@ -227,6 +229,9 @@ export const createExplorerSlice: StateCreator<
     //     "onAutomaticButtonClick: No data frame, please select a project first"
     //   );
     // }
+    if (!dexieVectorStore.memoryVectors) {
+      throw new Error(`onAutomaticButtonClick error: No vectors in store`);
+    }
     const numberOfLines = 10;
     const max =
       dexieVectorStore.memoryVectors.length > numberOfLines
@@ -234,6 +239,7 @@ export const createExplorerSlice: StateCreator<
         : dexieVectorStore.memoryVectors.length;
     const firstLineIndex = randomNumber(0, max);
 
+    console.log(";test", firstLineIndex, dexieVectorStore.memoryVectors);
     const documentToUse = dexieVectorStore.memoryVectors[firstLineIndex];
 
     let promptType = "short question";
@@ -266,6 +272,7 @@ export const createExplorerSlice: StateCreator<
         }
         break;
     }
+
     const { assistantReply, context } = await explorerGpt.runAutomatic({
       promptType,
       context: documentToUse.content,
@@ -280,6 +287,7 @@ export const createExplorerSlice: StateCreator<
       set({
         responseField: assistantReply,
         contextField: context,
+        prompt: assistantReply,
       });
     }
     // let contextString = `Create a ${promptType} that uses the following context\n\nContext:${s.values.at(
