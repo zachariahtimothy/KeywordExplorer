@@ -23,6 +23,8 @@ import "@ionic/react/css/display.css";
 import "./theme/variables.css";
 import OpenAiProvider from "./modules/openAi/providers/OpenAiProvider";
 import ChatPage from "./pages/Chat";
+import ImageEditorPage from "./pages/ImageEditor";
+import ContextTabsPage from "./pages/ContextTabs";
 
 setupIonicReact();
 
@@ -31,11 +33,12 @@ const App: React.FC = () => (
     <IonApp>
       <IonReactRouter>
         <IonRouterOutlet>
-          <Route exact path="/home">
-            <Home />
-          </Route>
-          <Route exact path="/chat">
-            <ChatPage />
+          <Route exact path="/home" component={Home} />
+          <Route exact path="/chat" component={ChatPage} />
+          <Route exact path="/imageeditor" component={ImageEditorPage} />
+          <Route path="/context/:tab" component={ContextTabsPage} />
+          <Route exact path="/context">
+            <Redirect to="/context/explorer" />
           </Route>
           <Route exact path="/">
             <Redirect to="/home" />
